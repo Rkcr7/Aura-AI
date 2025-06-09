@@ -1,0 +1,1 @@
+Fixed environment configuration loading - Resolved issues with .env file parsing and ensured proper configuration priority between environment variables and file settings

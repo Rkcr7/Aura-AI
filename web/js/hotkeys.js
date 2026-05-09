@@ -20,10 +20,11 @@ class HotkeyManager {
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
         document.addEventListener('keyup',   this.handleKeyUp.bind(this));
 
-        // Prevent default browser shortcuts that might interfere
+        // Prevent default browser shortcuts that might interfere.
+        // Use event.code (not event.key) — on macOS, ⌥[ produces '{' and ⌥] produces '}',
+        // so event.key is unreliable. event.code stays constant regardless of modifiers.
         document.addEventListener('keydown', (e) => {
-            // ⌥[ and ⌥] — transparency step down/up
-            if (e.altKey && ['[', ']'].includes(e.key)) {
+            if (e.altKey && ['BracketLeft', 'BracketRight'].includes(e.code)) {
                 e.preventDefault();
             }
         });
@@ -32,14 +33,14 @@ class HotkeyManager {
     handleKeyDown(event) {
         if (!this.isEnabled) return;
 
-        // ⌥[ → decrease opacity
-        if (event.altKey && event.key === '[') {
+        // ⌥[ → decrease opacity  (use event.code — event.key is '{' on macOS)
+        if (event.altKey && event.code === 'BracketLeft') {
             this.decreaseTransparency();
             return;
         }
 
-        // ⌥] → increase opacity
-        if (event.altKey && event.key === ']') {
+        // ⌥] → increase opacity  (use event.code — event.key is '}' on macOS)
+        if (event.altKey && event.code === 'BracketRight') {
             this.increaseTransparency();
             return;
         }

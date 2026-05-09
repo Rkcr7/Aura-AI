@@ -149,8 +149,14 @@ class GlobalCommandMonitor:
                 pk = command_data.get("preset_key", "primary")
                 self._js(f'if(window.switchPreset)window.switchPreset("{pk}")')
             elif command == "set_transparency":
-                lvl = command_data.get("level", "opaque")
-                self._js(f'if(window.setTransparency)window.setTransparency("{lvl}")')
+                # Map string names to the numeric levels exposed by window.setTransparencyLevel()
+                # (1 = 20%, 2 = 40%, 3 = 60%, 4 = 70%/semi, 5 = 100%/opaque)
+                level_map = {"transparent": 1, "semi": 4, "opaque": 5}
+                level = level_map.get(command_data.get("level", "opaque"))
+                if level is None:
+                    print(f"⚠️ Unknown transparency level: {command_data.get('level')}")
+                    return False
+                self._js(f"if(window.setTransparencyLevel)window.setTransparencyLevel({level})")
             elif command == "toggle_mic_mute":
                 self._js('if(window.toggleMicMute)window.toggleMicMute()')
             elif command == "toggle_universal_mute":

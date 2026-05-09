@@ -23,10 +23,25 @@ import webview
 from pynput import keyboard
 
 # ---------------------------------------------------------------------------
-# Scroll configuration (read from .env via os.environ)
+# Scroll configuration — read lazily so .env values are honoured
+# (module-level os.environ reads happen before core.config loads .env)
 # ---------------------------------------------------------------------------
-SCROLL_AMOUNT_PX = int(os.environ.get("SCROLL_SPEED_PX", "200"))
-SCROLL_INTERVAL_MS = int(os.environ.get("SCROLL_INTERVAL_MS", "50"))
+def _get_scroll_amount_px() -> int:
+    """Return SCROLL_SPEED_PX from settings, falling back to 200."""
+    try:
+        from core.config import settings
+        return getattr(settings, "SCROLL_SPEED_PX", 200)
+    except Exception:
+        return int(os.environ.get("SCROLL_SPEED_PX", "200"))
+
+
+def _get_scroll_interval_ms() -> int:
+    """Return SCROLL_INTERVAL_MS from settings, falling back to 50."""
+    try:
+        from core.config import settings
+        return getattr(settings, "SCROLL_INTERVAL_MS", 50)
+    except Exception:
+        return int(os.environ.get("SCROLL_INTERVAL_MS", "50"))
 
 # ---------------------------------------------------------------------------
 # macOS AppKit / Quartz imports
@@ -311,20 +326,21 @@ class WindowManager:
 
     def _continuous_scroll_loop(self) -> None:
         """Background thread — smooth scroll while key is held."""
-        interval = SCROLL_INTERVAL_MS / 1000.0
+        interval = _get_scroll_interval_ms() / 1000.0
         while self.scrolling_up or self.scrolling_down:
             try:
+                amount = _get_scroll_amount_px()
                 if webview.windows:
                     win = webview.windows[0]
                     if self.scrolling_up:
                         win.evaluate_js(
                             f'document.getElementById("conversation-stream")'
-                            f'?.scrollBy({{top:-{SCROLL_AMOUNT_PX},behavior:"smooth"}})'
+                            f'?.scrollBy({{top:-{amount},behavior:"smooth"}})'
                         )
                     elif self.scrolling_down:
                         win.evaluate_js(
                             f'document.getElementById("conversation-stream")'
-                            f'?.scrollBy({{top:{SCROLL_AMOUNT_PX},behavior:"smooth"}})'
+                            f'?.scrollBy({{top:{amount},behavior:"smooth"}})'
                         )
             except Exception:
                 pass
@@ -364,11 +380,18 @@ class WindowManager:
 
         # ── Command file bridge (for commands that need the browser) ──────
         def _send_command(data: dict) -> None:
+            """Atomically write a command to the temp file (tmp → os.replace).
+            Prevents main.py's polling reader from seeing a half-written JSON blob.
+            """
             try:
                 cmd_file = os.path.join(tempfile.gettempdir(), "aura_command.json")
+                tmp_file = f"{cmd_file}.tmp"
                 data["source"] = "global_hotkey"
-                with open(cmd_file, "wb") as fh:
+                with open(tmp_file, "wb") as fh:
                     fh.write(orjson.dumps(data))
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                os.replace(tmp_file, cmd_file)
             except Exception as exc:
                 print(f"⚠️  Could not write hotkey command: {exc}")
 
@@ -422,8 +445,16 @@ class WindowManager:
 
         def _on_release(key) -> None:
             _active_keys.discard(key)
+            # Stop scrolling when the arrow key is released
             if key in (keyboard.Key.up, keyboard.Key.down):
                 self._stop_scroll()
+            # Also stop if the Option/Alt modifier itself is released first —
+            # otherwise the scroll thread keeps running until the arrow key arrives.
+            alt_keys = (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r)
+            if key in alt_keys:
+                still_alt = any(k in _active_keys for k in alt_keys)
+                if not still_alt:
+                    self._stop_scroll()
 
         try:
             self.hotkey_listener = keyboard.GlobalHotKeys(HOTKEYS)

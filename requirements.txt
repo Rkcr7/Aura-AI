@@ -1,13 +1,35 @@
-pywebview[winforms]
-pywin32
+# Aura AI — macOS Requirements
+# pywebview uses the Cocoa (WKWebView) backend on macOS — no [winforms] extra needed
+pywebview
+
+# macOS native window management (replaces pywin32 entirely)
+pyobjc-core
+pyobjc-framework-Cocoa
+pyobjc-framework-Quartz
+
+# Web server
 fastapi
 uvicorn[standard]
+
+# Config & env
 pydantic-settings
+python-dotenv
+
+# AI providers (OpenAI-compatible)
 openai
+
+# Speech-to-text
 deepgram-sdk==3.*
+
+# HTTP client
 requests
 httpx
+
+# Performance JSON
 orjson
+
+# Async file I/O
 aiofiles
+
+# Global hotkeys (requires Accessibility permission on macOS)
 pynput
-python-dotenv

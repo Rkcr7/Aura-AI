@@ -1,29 +1,29 @@
-// Hotkeys Module for Aura
-// Provides keyboard shortcuts for transparency and other controls
+// hotkeys.js — macOS Edition
+// Provides keyboard shortcuts for transparency and other controls.
+// macOS: Alt key = ⌥ Option key.  Key codes are identical — only UI labels change.
 
 import { devLog } from './config.js';
 import muteManager from './mute-manager.js';
 
 class HotkeyManager {
     constructor() {
-        this.transparencyLevels = [0.2, 0.4, 0.6, 0.8, 1.0]; // 5 levels: 20%, 40%, 60%, 80%, 100%
-        this.currentTransparencyLevel = 3; // Default to 80% (index 3)
+        this.transparencyLevels = [0.2, 0.4, 0.6, 0.8, 1.0]; // 5 levels: 20%→100%
+        this.currentTransparencyLevel = 3; // Default 80% (index 3)
         this.isEnabled = true;
-        this.isAlwaysOnTop = true; // Track always-on-top state
-        
+        this.isAlwaysOnTop = true;
+
         this.setupEventListeners();
-        devLog('🎹 Hotkey manager initialized');
+        devLog('🎹 Hotkey manager initialized (macOS — ⌥ Option key)');
     }
 
     setupEventListeners() {
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
-        document.addEventListener('keyup', this.handleKeyUp.bind(this));
-        
+        document.addEventListener('keyup',   this.handleKeyUp.bind(this));
+
         // Prevent default browser shortcuts that might interfere
         document.addEventListener('keydown', (e) => {
-            // Prevent default browser actions for Alt+[ and Alt+]
-            // Note: Alt+M and Alt+U are handled by global hotkeys only
-            if (e.altKey && ['[', ']'].includes(e.key.toLowerCase())) {
+            // ⌥[ and ⌥] — transparency step down/up
+            if (e.altKey && ['[', ']'].includes(e.key)) {
                 e.preventDefault();
             }
         });
@@ -32,15 +32,13 @@ class HotkeyManager {
     handleKeyDown(event) {
         if (!this.isEnabled) return;
 
-        // Note: Alt+M and Alt+U are handled by global hotkeys only to prevent conflicts
-        
-        // Check for Alt+[ to decrease transparency
+        // ⌥[ → decrease opacity
         if (event.altKey && event.key === '[') {
             this.decreaseTransparency();
             return;
         }
 
-        // Check for Alt+] to increase transparency
+        // ⌥] → increase opacity
         if (event.altKey && event.key === ']') {
             this.increaseTransparency();
             return;
@@ -48,7 +46,7 @@ class HotkeyManager {
     }
 
     handleKeyUp(event) {
-        // This method is kept for event listener consistency, but is currently empty.
+        // kept for symmetry with setupEventListeners
     }
 
     decreaseTransparency() {
@@ -67,28 +65,26 @@ class HotkeyManager {
 
     async applyTransparency() {
         const transparency = this.transparencyLevels[this.currentTransparencyLevel];
-        const percent = Math.round(transparency * 100);
-        
+        const percent      = Math.round(transparency * 100);
+
         try {
-            // Only allow transparency changes during live interview
             const currentView = document.querySelector('.view.active');
-            const isLiveView = currentView && currentView.id === 'live-view';
-            
+            const isLiveView  = currentView && currentView.id === 'live-view';
+
             if (!isLiveView) {
                 console.log('ℹ️ Transparency hotkeys only work during live interview');
                 this.showTransparencyFeedback(100, 'Transparency only available in live interview');
                 return;
             }
-            
-            // Apply Windows-level transparency
+
             const response = await fetch('/api/transparency', {
-                method: 'POST',
+                method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ transparency: transparency })
+                body:    JSON.stringify({ transparency }),
             });
-            
+
             if (response.ok) {
-                devLog(`🪟 Transparency set to ${percent}% via hotkey`);
+                devLog(`🪟 Transparency set to ${percent}% via ⌥[ / ⌥]`);
                 this.showTransparencyFeedback(percent);
             }
         } catch (error) {
@@ -96,67 +92,42 @@ class HotkeyManager {
         }
     }
 
-    showTransparencyHint() {
-        // This hint is no longer needed as the interaction is simpler
-        // The feedback on change is sufficient
-    }
-
-    hideTransparencyHint() {
-        // This hint is no longer needed as the interaction is simpler
-    }
-
     showTransparencyFeedback(percent, message = null) {
         this.removeExistingFeedback();
-        
+
         const feedback = document.createElement('div');
         feedback.id = 'transparency-feedback';
-        
+
         if (message) {
-            feedback.innerHTML = `
-                <div class="transparency-feedback">
-                    ℹ️ ${message}
-                </div>
-            `;
+            feedback.innerHTML = `<div class="transparency-feedback">ℹ️ ${message}</div>`;
         } else {
             feedback.innerHTML = `
                 <div class="transparency-feedback">
                     🪟 ${percent}% Opacity
-                    <div class="transparency-bar">
-                        ${this.generateTransparencyBar()}
-                    </div>
-                </div>
-            `;
+                    <div class="transparency-bar">${this.generateTransparencyBar()}</div>
+                    <div class="hotkey-hint">⌥[ decrease &nbsp; ⌥] increase</div>
+                </div>`;
         }
-        
+
         document.body.appendChild(feedback);
-        
-        // Auto-hide after 2 seconds
-        setTimeout(() => {
-            if (feedback.parentNode) {
-                feedback.remove();
-            }
-        }, 2000);
+        setTimeout(() => { if (feedback.parentNode) feedback.remove(); }, 2000);
     }
 
     generateTransparencyBar() {
-        let bar = '';
-        for (let i = 0; i < this.transparencyLevels.length; i++) {
-            const isActive = i === this.currentTransparencyLevel;
-            bar += `<span class="bar-segment ${isActive ? 'active' : ''}">${isActive ? '●' : '○'}</span>`;
-        }
-        return bar;
-    }
-
-    removeExistingHints() {
-        // This hint is no longer needed
+        return this.transparencyLevels
+            .map((_, i) => {
+                const active = i === this.currentTransparencyLevel;
+                return `<span class="bar-segment ${active ? 'active' : ''}">${active ? '●' : '○'}</span>`;
+            })
+            .join('');
     }
 
     removeExistingFeedback() {
-        const existing = document.getElementById('transparency-feedback');
-        if (existing) existing.remove();
+        const el = document.getElementById('transparency-feedback');
+        if (el) el.remove();
     }
 
-    // Public methods for external control
+    // ── Public API ────────────────────────────────────────────────────────
     setEnabled(enabled) {
         this.isEnabled = enabled;
         devLog(`🎹 Hotkeys ${enabled ? 'enabled' : 'disabled'}`);
@@ -164,9 +135,9 @@ class HotkeyManager {
 
     getCurrentTransparency() {
         return {
-            level: this.currentTransparencyLevel + 1,
+            level:   this.currentTransparencyLevel + 1,
             percent: Math.round(this.transparencyLevels[this.currentTransparencyLevel] * 100),
-            value: this.transparencyLevels[this.currentTransparencyLevel]
+            value:   this.transparencyLevels[this.currentTransparencyLevel],
         };
     }
 
@@ -176,17 +147,15 @@ class HotkeyManager {
             this.applyTransparency();
         }
     }
-
-    // Note: Audio toggle methods removed - handled by global hotkeys only
 }
 
-// Create global instance
+// ── Singleton ─────────────────────────────────────────────────────────────
 const hotkeyManager = new HotkeyManager();
 
-// Global functions for console access
-window.enableHotkeys = () => hotkeyManager.setEnabled(true);
-window.disableHotkeys = () => hotkeyManager.setEnabled(false);
+// Console helpers
+window.enableHotkeys       = () => hotkeyManager.setEnabled(true);
+window.disableHotkeys      = () => hotkeyManager.setEnabled(false);
 window.getTransparencyLevel = () => hotkeyManager.getCurrentTransparency();
-window.setTransparencyLevel = (level) => hotkeyManager.setTransparencyLevel(level);
+window.setTransparencyLevel = (l) => hotkeyManager.setTransparencyLevel(l);
 
-export default hotkeyManager; 
+export default hotkeyManager;

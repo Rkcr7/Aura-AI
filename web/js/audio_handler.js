@@ -51,25 +51,19 @@ export async function setupMicrophone() {
  */
 export async function startAudioProcessing(micId, onAudioData) {
     try {
-        // ── PHASE 1: AudioContext (must be within user-gesture on WebKit) ────────
-        // WebKit requires AudioContext to be created (or resumed) during a user
-        // gesture. Creating it here — before any awaits — ensures we're still
-        // within the gesture trust boundary from the "Start Interview" click.
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        console.log(`🎵 AudioContext created: ${audioContext.sampleRate}Hz (state: ${audioContext.state})`);
+        // ── PHASE 1: Initiate EVERYTHING synchronously within user-gesture ────────
+        // WebKit invalidates the gesture token after the first `await`. To keep
+        // getUserMedia, getDisplayMedia, and AudioContext.resume() all within
+        // the gesture boundary we must START them before yielding the event loop.
 
-        // Pre-load the AudioWorklet module while still in gesture context.
-        // Loading from localhost is fast (~1 ms), so the gesture token survives.
-        await audioContext.audioWorklet.addModule('/static/js/audio_processor.js');
-        console.log('🎛️ AudioWorklet module loaded');
+        // (a) Start mic capture — initiated synchronously, not yet awaited
+        const micStreamPromise = navigator.mediaDevices.getUserMedia({
+            audio: { deviceId: { exact: micId } },
+        });
 
-        // ── PHASE 2: Get media streams ───────────────────────────────────────────
-        // Both calls must be launched synchronously (Promise.all) because WebKit
-        // burns the gesture token on the first awaited media request.
-        //
-        // System audio via getDisplayMedia is OPTIONAL on macOS — the screen
-        // picker may be hidden behind the always-on-top window, or macOS may
-        // not support system audio capture. A 45-second timeout prevents hanging.
+        // (b) Start screen sharing — initiated synchronously, not yet awaited.
+        //     Optional on macOS: the screen picker may be hidden behind the
+        //     always-on-top Aura window; 45 s timeout → mic-only fallback.
         const withTimeout = (promise, ms, label) =>
             Promise.race([
                 promise,
@@ -83,34 +77,43 @@ export async function startAudioProcessing(micId, onAudioData) {
             45000,
             'Screen sharing'
         ).catch(err => {
-            console.warn(`⚠️ System audio unavailable — running in mic-only mode. (${err.message})`);
-            console.warn('   Tip: if a "Choose what to share" dialog appeared, it may be hidden behind the Aura window.');
-            return null; // mic-only mode; interview still works
+            console.warn(`⚠️ System audio unavailable — mic-only mode. (${err.message})`);
+            console.warn('   Tip: a "Choose what to share" dialog may be hidden behind the Aura window.');
+            return null;
         });
 
+        // (c) Create AudioContext — synchronous, within gesture ✅
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log(`🎵 AudioContext created: ${audioContext.sampleRate}Hz (state: ${audioContext.state})`);
+
+        // (d) Start loading AudioWorklet module — initiated synchronously,
+        //     awaited below. Runs in parallel while screen picker is open.
+        const addModulePromise = audioContext.audioWorklet.addModule('/static/js/audio_processor.js');
+
+        // ── PHASE 2: Await all concurrent operations ──────────────────────────────
         [micStream, systemStream] = await Promise.all([
-            navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micId } } }),
+            micStreamPromise,
             displayMediaPromise,
         ]);
+        await addModulePromise;
+        console.log('🎛️ AudioWorklet module loaded');
 
         if (!micStream) {
-            console.error("Could not get microphone stream.");
+            console.error('Could not get microphone stream.');
             stopAudioProcessing();
             return false;
         }
-
         if (!systemStream) {
-            console.warn("⚠️ Proceeding in mic-only mode — interviewer audio will not be captured.");
+            console.warn('⚠️ Proceeding in mic-only mode — interviewer audio will not be captured.');
         }
 
         // WebKit may suspend AudioContext while the screen picker was open.
-        // Resume it before building the audio graph.
         if (audioContext.state === 'suspended') {
             await audioContext.resume();
             console.log('▶️ AudioContext resumed');
         }
 
-        // ── PHASE 3: Build audio graph ───────────────────────────────────────────
+        // ── PHASE 3: Build audio graph ────────────────────────────────────────────
         // 3. Create a single mixed processor for better diarization
         const mixedProcessor = new AudioWorkletNode(audioContext, 'mixed-processor');
 

@@ -381,21 +381,58 @@ def setup_webview_window():
         else:
             print("⚠️ Could not locate Aura NSWindow at startup")
 
-        # Configure WebKit to allow microphone without user-gesture restriction
+        # ── WKUIDelegate: auto-grant getUserMedia() microphone requests ──────
+        # WKWebView will call this delegate method when JS calls getUserMedia().
+        # Without it, WKWebView silently denies mic access even if the process
+        # has macOS microphone permission. WKPermissionDecisionGrant = 1.
         try:
             from WebKit import WKWebView
+            from Foundation import NSObject
             from AppKit import NSApp
-            # WKAudiovisualMediaTypeNone = 0 → no media types need a user gesture
+            import objc
+
+            class _AuraMicDelegate(NSObject):
+                """Minimal WKUIDelegate that grants all media capture requests."""
+
+                def webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_type_decisionHandler_(
+                    self, webview, origin, frame, media_type, handler
+                ):
+                    """Grant microphone (and camera) access automatically."""
+                    print("🎙️ WKUIDelegate: granting media capture permission")
+                    handler(1)  # 1 = WKPermissionDecisionGrant
+
+                webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_type_decisionHandler_ = objc.selector(
+                    webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_type_decisionHandler_,
+                    selector=b"webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:",
+                    signature=b"v@:@@@q@?",
+                )
+
+            def _find_wkwebview(view):
+                """Recursively search view hierarchy for WKWebView."""
+                if isinstance(view, WKWebView):
+                    return view
+                for sub in (view.subviews() or []):
+                    found = _find_wkwebview(sub)
+                    if found:
+                        return found
+                return None
+
+            mic_delegate = _AuraMicDelegate.alloc().init()
             for ns_window in NSApp.windows():
-                for view in ns_window.contentView().subviews():
-                    if isinstance(view, WKWebView):
-                        config = view.configuration()
-                        config.setMediaTypesRequiringUserActionForPlayback_(0)
-                        print("🎙️ WebKit media permissions configured (microphone allowed)")
-                        break
+                content = ns_window.contentView()
+                if content is None:
+                    continue
+                wkview = _find_wkwebview(content)
+                if wkview:
+                    # Remove gesture restriction for playback too
+                    wkview.configuration().setMediaTypesRequiringUserActionForPlayback_(0)
+                    wkview.setUIDelegate_(mic_delegate)
+                    # Pin to prevent garbage collection
+                    win._mic_delegate = mic_delegate
+                    print("🎙️ WKUIDelegate set — microphone will be auto-granted")
+                    break
         except Exception as mic_exc:
-            print(f"ℹ️ Could not auto-configure WebKit media permissions: {mic_exc}")
-            print("   If microphone fails: System Settings → Privacy → Microphone → enable Python")
+            print(f"ℹ️ WKUIDelegate setup failed: {mic_exc}")
 
         # Start global hotkey listener
         window_manager.window_manager.start_hotkey_listener()

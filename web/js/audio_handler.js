@@ -52,8 +52,14 @@ export async function setupMicrophone() {
 export async function startAudioProcessing(micId, onAudioData) {
     try {
         // 1. Get Audio Streams
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micId } } });
-        systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        // IMPORTANT (WebKit): Both media requests must be initiated synchronously
+        // within the user-gesture handler. Sequential awaits consume the gesture
+        // trust token, causing getDisplayMedia to throw InvalidStateError.
+        // Promise.all launches both calls before yielding — both pass the check.
+        [micStream, systemStream] = await Promise.all([
+            navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micId } } }),
+            navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }),
+        ]);
 
         if (!micStream || !systemStream) {
             console.error("Could not get both audio streams.");

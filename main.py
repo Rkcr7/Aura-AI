@@ -381,6 +381,22 @@ def setup_webview_window():
         else:
             print("⚠️ Could not locate Aura NSWindow at startup")
 
+        # Configure WebKit to allow microphone without user-gesture restriction
+        try:
+            from WebKit import WKWebView
+            from AppKit import NSApp
+            # WKAudiovisualMediaTypeNone = 0 → no media types need a user gesture
+            for ns_window in NSApp.windows():
+                for view in ns_window.contentView().subviews():
+                    if isinstance(view, WKWebView):
+                        config = view.configuration()
+                        config.setMediaTypesRequiringUserActionForPlayback_(0)
+                        print("🎙️ WebKit media permissions configured (microphone allowed)")
+                        break
+        except Exception as mic_exc:
+            print(f"ℹ️ Could not auto-configure WebKit media permissions: {mic_exc}")
+            print("   If microphone fails: System Settings → Privacy → Microphone → enable Python")
+
         # Start global hotkey listener
         window_manager.window_manager.start_hotkey_listener()
 

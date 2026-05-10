@@ -56,6 +56,7 @@ class GlobalCommandMonitor:
     """Monitors the temp command file for global hotkey commands."""
 
     def __init__(self):
+        """Initialise the monitor with a temp-file path and timing defaults."""
         self.command_file = os.path.join(tempfile.gettempdir(), "aura_command.json")
         self.last_command_time = 0
         self.running = False
@@ -66,6 +67,7 @@ class GlobalCommandMonitor:
         self._monitor_task = None
 
     async def start_monitoring(self):
+        """Delete any stale command file and launch the async polling loop."""
         try:
             if os.path.exists(self.command_file):
                 os.remove(self.command_file)
@@ -77,6 +79,7 @@ class GlobalCommandMonitor:
         print("🎮 Global command monitor started")
 
     async def stop_monitoring(self):
+        """Signal the polling loop to stop and await its cancellation."""
         self.running = False
         if self._monitor_task and not self._monitor_task.done():
             self._monitor_task.cancel()
@@ -87,6 +90,7 @@ class GlobalCommandMonitor:
         print("🎮 Global command monitor stopped")
 
     async def _async_monitor_loop(self):
+        """Poll the command file every 200 ms and dispatch recognised commands."""
         while self.running:
             try:
                 if os.path.exists(self.command_file):
@@ -111,6 +115,7 @@ class GlobalCommandMonitor:
                 await asyncio.sleep(1)
 
     def _process_command(self, command_data: dict) -> bool:
+        """Validate and dispatch a single command dict; return True on success."""
         command = command_data.get("command", "")
         source = command_data.get("source", "")
 
@@ -206,12 +211,16 @@ app.mount("/static", StaticFiles(directory="web"), name="static")
 
 @app.get("/")
 async def read_index(request: Request):
+    """Serve the main SPA entry point (web/index.html)."""
     return FileResponse(os.path.join("web", "index.html"))
 
 
 # --- Uvicorn server wrapper ---
 class UvicornServer:
+    """Thin async wrapper around a Uvicorn ASGI server instance."""
+
     def __init__(self, fastapi_app, host="127.0.0.1", port=None):
+        """Bind the server to *host* and an available *port* (auto-detected if None)."""
         self.app = fastapi_app
         self.host = host
         self.port = port if port else find_free_port()
@@ -219,6 +228,7 @@ class UvicornServer:
         self.server_task = None
 
     async def start(self):
+        """Configure and start the Uvicorn server as an asyncio task."""
         config = uvicorn.Config(
             app=self.app, host=self.host, port=self.port,
             log_level="warning", loop="asyncio"
@@ -228,6 +238,7 @@ class UvicornServer:
         print(f"🚀 Uvicorn started on {self.host}:{self.port}")
 
     async def stop(self):
+        """Gracefully signal Uvicorn to exit and await task completion."""
         if self.server:
             self.server.should_exit = True
             if self.server_task and not self.server_task.done():
@@ -247,18 +258,23 @@ uvicorn_server = UvicornServer(app)
 
 # --- Background asyncio thread ---
 class AsyncioServiceThread:
+    """Runs an asyncio event loop in a background daemon thread."""
+
     def __init__(self):
+        """Initialise thread handle, loop reference, and shutdown event."""
         self.thread = None
         self.loop = None
         self.shutdown_event = threading.Event()
 
     def start(self):
+        """Spawn the daemon thread and start the asyncio services inside it."""
         self.shutdown_event.clear()
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
         print("🚀 Asyncio services thread started")
 
     def stop(self):
+        """Signal the asyncio loop to shut down and join the thread (up to 10 s)."""
         print("🛑 Requesting asyncio services shutdown…")
         self.shutdown_event.set()
         if self.thread and self.thread.is_alive():
@@ -269,6 +285,7 @@ class AsyncioServiceThread:
                 print("✅ Asyncio services thread stopped")
 
     def _run(self):
+        """Thread target: create a fresh event loop and run all async services."""
         try:
             self.loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.loop)
@@ -291,6 +308,7 @@ class AsyncioServiceThread:
                     print(f"⚠️ Error during loop cleanup: {exc}")
 
     async def _run_services(self):
+        """Start Uvicorn, the session cleaner, and the command monitor; block until shutdown."""
         try:
             print("🚀 Starting async services…")
             await uvicorn_server.start()
@@ -324,6 +342,7 @@ def setup_webview_window():
     )
 
     def on_window_shown():
+        """Apply macOS window properties once the Cocoa window is visible."""
         print(f"🔧 Window shown. DEV_MODE={DEV_MODE}")
 
         if not DEV_MODE:
@@ -359,6 +378,7 @@ def setup_webview_window():
         window_manager.window_manager.start_hotkey_listener()
 
     def on_window_closing():
+        """Tear down asyncio services before the window is destroyed."""
         print("🛑 Window closing — shutting down services…")
         asyncio_service_thread.stop()
         return True
@@ -370,6 +390,7 @@ def setup_webview_window():
 
 # --- Entry point ---
 def main():
+    """Application entry point: start async services, open pywebview window, run Cocoa loop."""
     print("🚀 Starting Aura (macOS — AppKit/Cocoa)")
     print("   📋 Architecture: pywebview/Cocoa on main thread, asyncio in background thread")
 

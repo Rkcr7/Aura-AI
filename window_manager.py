@@ -96,6 +96,7 @@ class WindowManager:
     """
 
     def __init__(self):
+        """Initialise state for transparency, ghost mode, scrolling, and hotkey listeners."""
         self.is_macos = IS_MACOS
         self.current_transparency: float = 1.0
         self.is_ghost_mode: bool = False
@@ -144,9 +145,11 @@ class WindowManager:
             return False
 
     def get_transparency(self) -> float:
+        """Return the last-set alpha value (0.0 = invisible, 1.0 = opaque)."""
         return self.current_transparency
 
     def set_transparency_percent(self, percent: int) -> bool:
+        """Set transparency from a 0–100 integer percentage."""
         return self.set_transparency(percent / 100.0)
 
     def make_transparent(self) -> bool:
@@ -231,6 +234,7 @@ class WindowManager:
             print(f"❌ Error setting ghost mode: {exc}")
 
     def toggle_ghost_mode(self) -> None:
+        """Flip ghost/click-through mode between enabled and disabled."""
         self.set_ghost_mode(not self.is_ghost_mode)
 
     # ------------------------------------------------------------------ #
@@ -310,6 +314,7 @@ class WindowManager:
     # ------------------------------------------------------------------ #
 
     def get_window_info(self) -> dict:
+        """Return a snapshot of the current window state as a plain dict."""
         return {
             "transparency": self.current_transparency,
             "transparency_percent": int(self.current_transparency * 100),
@@ -347,6 +352,7 @@ class WindowManager:
             time.sleep(interval)
 
     def _start_scroll(self, direction: str) -> None:
+        """Begin continuous scrolling in *direction* ('up' or 'down') on a daemon thread."""
         self.scrolling_up = direction == "up"
         self.scrolling_down = direction == "down"
         if not self.scroll_thread or not self.scroll_thread.is_alive():
@@ -356,6 +362,7 @@ class WindowManager:
             self.scroll_thread.start()
 
     def _stop_scroll(self) -> None:
+        """Signal the scroll thread to stop at the next iteration."""
         self.scrolling_up = False
         self.scrolling_down = False
 
@@ -432,6 +439,7 @@ class WindowManager:
         _active_keys: set = set()
 
         def _on_press(key) -> None:
+            """Track held keys and start continuous scroll when ⌥↑ or ⌥↓ is detected."""
             _active_keys.add(key)
             is_alt = any(
                 k in _active_keys
@@ -444,6 +452,7 @@ class WindowManager:
                     self._start_scroll("down")
 
         def _on_release(key) -> None:
+            """Stop scrolling when an arrow key or the Option/Alt modifier is released."""
             _active_keys.discard(key)
             # Stop scrolling when the arrow key is released
             if key in (keyboard.Key.up, keyboard.Key.down):
@@ -476,21 +485,27 @@ class WindowManager:
     # ------------------------------------------------------------------ #
 
     def find_window_by_title(self, title: str):
+        """Stub — Windows-only feature, not applicable on macOS."""
         return None
 
     def find_screen_share_indicators(self) -> list:
+        """Stub — screen-share indicator detection is Windows-only."""
         return []
 
     def hide_screen_share_indicator(self, hwnd) -> bool:
+        """Stub — hiding screen-share indicators is Windows-only."""
         return False
 
     def hide_all_screen_share_indicators(self) -> int:
+        """Stub — hiding all screen-share indicators is Windows-only."""
         return 0
 
     def start_screen_share_monitor(self) -> None:
+        """Stub — screen-share indicator monitor is Windows-only; prints a notice on macOS."""
         print("ℹ️  Screen-share indicator monitor: not applicable on macOS")
 
     def stop_screen_share_monitor(self) -> None:
+        """Stub — screen-share monitor is Windows-only; no-op on macOS."""
         pass
 
 
@@ -522,28 +537,35 @@ def find_aura_window() -> bool:
 
 
 def set_app_always_on_top(on_top: bool) -> bool:
+    """Module-level alias: set or clear the always-on-top window level."""
     return window_manager.set_always_on_top(on_top)
 
 
 def set_app_transparency(transparency: float) -> bool:
+    """Module-level alias: set window alpha (0.0–1.0)."""
     return window_manager.set_transparency(transparency)
 
 
 def set_app_transparency_percent(percent: int) -> bool:
+    """Module-level alias: set window transparency from a 0–100 integer."""
     return window_manager.set_transparency_percent(percent)
 
 
 def make_app_transparent() -> bool:
+    """Module-level alias: set window to 40% opacity (stealth overlay)."""
     return window_manager.make_transparent()
 
 
 def make_app_semi_transparent() -> bool:
+    """Module-level alias: set window to 70% opacity."""
     return window_manager.make_semi_transparent()
 
 
 def make_app_opaque() -> bool:
+    """Module-level alias: set window to fully opaque (100%)."""
     return window_manager.make_opaque()
 
 
 def get_transparency_info() -> dict:
+    """Module-level alias: return the current window state snapshot."""
     return window_manager.get_window_info()

@@ -54,17 +54,44 @@ export async function startAudioProcessing(micId, onAudioData) {
         // 1. Get Audio Streams
         // IMPORTANT (WebKit): Both media requests must be initiated synchronously
         // within the user-gesture handler. Sequential awaits consume the gesture
-        // trust token, causing getDisplayMedia to throw InvalidStateError.
-        // Promise.all launches both calls before yielding — both pass the check.
+        // trust token, causing getDisplayMedia to throw InvalidStateError on Safari/WKWebView.
+        // Promise.all launches both calls before yielding — both pass the gesture check.
+        //
+        // System audio (getDisplayMedia) is OPTIONAL on macOS:
+        //   • The screen-sharing picker can be hidden behind the always-on-top window.
+        //   • A 45-second timeout prevents the app hanging forever.
+        //   • If it fails/times out, mic-only mode is used (still captures your speech).
+        const withTimeout = (promise, ms, label) =>
+            Promise.race([
+                promise,
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+                ),
+            ]);
+
+        const displayMediaPromise = withTimeout(
+            navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }),
+            45000,
+            'Screen sharing'
+        ).catch(err => {
+            console.warn(`⚠️ System audio unavailable — running in mic-only mode. (${err.message})`);
+            console.warn('   Tip: if a "Choose what to share" dialog appeared, it may be hidden behind the Aura window.');
+            return null; // mic-only mode; interview still works
+        });
+
         [micStream, systemStream] = await Promise.all([
             navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micId } } }),
-            navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }),
+            displayMediaPromise,
         ]);
 
-        if (!micStream || !systemStream) {
-            console.error("Could not get both audio streams.");
+        if (!micStream) {
+            console.error("Could not get microphone stream.");
             stopAudioProcessing();
             return false;
+        }
+
+        if (!systemStream) {
+            console.warn("⚠️ Proceeding in mic-only mode — interviewer audio will not be captured.");
         }
 
         // 2. Setup AudioContext and Worklet
@@ -106,7 +133,10 @@ export async function startAudioProcessing(micId, onAudioData) {
 
         // 4. Connect both sources to the mixed processor with mute control
         const micSource = audioContext.createMediaStreamSource(micStream);
-        const systemSource = audioContext.createMediaStreamSource(systemStream);
+        // systemStream may be null in mic-only mode (getDisplayMedia declined/timed out)
+        const systemSource = systemStream
+            ? audioContext.createMediaStreamSource(systemStream)
+            : null;
         
         // Create gain node for microphone muting
         micGainNode = audioContext.createGain();
@@ -119,16 +149,22 @@ export async function startAudioProcessing(micId, onAudioData) {
         micSource.connect(micGainNode);
         micGainNode.connect(mixedProcessor);
         
-        // System audio connects directly (we don't want to mute interviewer)
-        systemSource.connect(mixedProcessor);
+        // System audio connects directly only when available
+        if (systemSource) {
+            systemSource.connect(mixedProcessor);
+        }
 
-        // Store the video track for screenshot reuse, but remove it from the stream
-        const videoTracks = systemStream.getVideoTracks();
-        if (videoTracks.length > 0) {
-            screenVideoTrack = videoTracks[0];
-            console.log("📹 Screen video track stored for screenshot reuse");
+        // Store the video track for screenshot reuse (only when screen sharing active)
+        if (systemStream) {
+            const videoTracks = systemStream.getVideoTracks();
+            if (videoTracks.length > 0) {
+                screenVideoTrack = videoTracks[0];
+                console.log("📹 Screen video track stored for screenshot reuse");
+            } else {
+                console.warn("⚠️ No video track found in display media stream");
+            }
         } else {
-            console.warn("⚠️ No video track found in display media stream");
+            console.warn("⚠️ Screenshots unavailable in mic-only mode");
         }
 
         devLog("✅ Audio processing started successfully");

@@ -47,11 +47,12 @@ def _get_scroll_interval_ms() -> int:
 # macOS Accessibility permission check
 # ---------------------------------------------------------------------------
 def _has_accessibility_permission() -> bool:
-    """Return True if the process already has macOS Accessibility permission.
+    """Return True if the process has macOS Accessibility permission.
 
-    Uses AXIsProcessTrusted() from the ApplicationServices framework.
-    Passing {'AXTrustedCheckOptionPrompt': False} checks silently without
-    showing the system prompt — we handle messaging ourselves.
+    Uses AXIsProcessTrustedWithOptions() from ApplicationServices.
+    Note: NSEvent global monitors actually require 'Input Monitoring'
+    (Privacy & Security → Input Monitoring), not Accessibility.
+    This function is kept for informational purposes only.
     """
     if not IS_MACOS:
         return True
@@ -62,12 +63,10 @@ def _has_accessibility_permission() -> bool:
             ctypes.util.find_library("ApplicationServices") or
             "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
         )
-        # AXIsProcessTrustedWithOptions is available macOS 10.9+
         lib.AXIsProcessTrustedWithOptions.restype = ctypes.c_bool
         lib.AXIsProcessTrustedWithOptions.argtypes = [ctypes.c_void_p]
         return lib.AXIsProcessTrustedWithOptions(None)
     except Exception:
-        # Fall back to always returning True so we don't block startup
         return True
 
 IS_MACOS = platform.system() == "Darwin"
@@ -411,11 +410,11 @@ class WindowManager:
         """
         print("⌨️  Starting global hotkey listener (NSEvent)…")
         if _has_accessibility_permission():
-            print("   ✅ Accessibility permission granted — hotkeys active")
+            print("   ✅ Accessibility permission granted")
         else:
-            print("   ⚠️  Accessibility permission NOT granted — hotkeys will not work!")
-            print("      Fix: System Settings → Privacy & Security → Accessibility")
-            print("      Add Terminal (or your IDE) to the list, then restart the app.")
+            print("   ℹ️  If hotkeys don't respond, grant Input Monitoring permission:")
+            print("      System Settings → Privacy & Security → Input Monitoring")
+            print("      Add Terminal.app → toggle ON → restart the app.")
 
         # ── Command file bridge ──────────────────────────────────────────
         def _send_command(data: dict) -> None:

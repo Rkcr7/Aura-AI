@@ -44,8 +44,32 @@ def _get_scroll_interval_ms() -> int:
         return int(os.environ.get("SCROLL_INTERVAL_MS", "50"))
 
 # ---------------------------------------------------------------------------
-# macOS AppKit / Quartz imports
+# macOS Accessibility permission check
 # ---------------------------------------------------------------------------
+def _has_accessibility_permission() -> bool:
+    """Return True if the process already has macOS Accessibility permission.
+
+    Uses AXIsProcessTrusted() from the ApplicationServices framework.
+    Passing {'AXTrustedCheckOptionPrompt': False} checks silently without
+    showing the system prompt — we handle messaging ourselves.
+    """
+    if not IS_MACOS:
+        return True
+    try:
+        import ctypes
+        import ctypes.util
+        lib = ctypes.cdll.LoadLibrary(
+            ctypes.util.find_library("ApplicationServices") or
+            "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
+        )
+        # AXIsProcessTrustedWithOptions is available macOS 10.9+
+        lib.AXIsProcessTrustedWithOptions.restype = ctypes.c_bool
+        lib.AXIsProcessTrustedWithOptions.argtypes = [ctypes.c_void_p]
+        return lib.AXIsProcessTrustedWithOptions(None)
+    except Exception:
+        # Fall back to always returning True so we don't block startup
+        return True
+
 IS_MACOS = platform.system() == "Darwin"
 
 if IS_MACOS:
@@ -382,10 +406,14 @@ class WindowManager:
         This matches the original Windows Alt+key shortcuts exactly.
         """
         print("⌨️  Starting global hotkey listener (pynput)…")
-        print("   ℹ️  macOS: Accessibility permission required for global hotkeys.")
-        print("      Grant in: System Settings → Privacy & Security → Accessibility")
+        if _has_accessibility_permission():
+            print("   ✅ Accessibility permission granted — hotkeys active")
+        else:
+            print("   ⚠️  Accessibility permission NOT granted — hotkeys will not work!")
+            print("      Fix: System Settings → Privacy & Security → Accessibility")
+            print("      Add Terminal (or your IDE) to the list, then restart the app.")
 
-        # ── Command file bridge (for commands that need the browser) ──────
+        # ── Command file bridge ──────────────────────────────────────────
         def _send_command(data: dict) -> None:
             """Atomically write a command to the temp file (tmp → os.replace).
             Prevents main.py's polling reader from seeing a half-written JSON blob.
@@ -402,78 +430,83 @@ class WindowManager:
             except Exception as exc:
                 print(f"⚠️  Could not write hotkey command: {exc}")
 
-        # ── Hotkey → action map ──────────────────────────────────────────
-        HOTKEYS = {
-            # Visibility & ghost
-            "<alt>z": lambda: self.toggle_visibility(),
-            "<alt>x": lambda: self.toggle_ghost_mode(),
-
-            # Transparency presets  (⌥1 opaque → ⌥3 most transparent)
-            "<alt>1": lambda: self.set_transparency(1.0),
-            "<alt>2": lambda: self.set_transparency(0.7),
-            "<alt>3": lambda: self.set_transparency(0.4),
-
-            # Microphone / mute
-            "<alt>m": lambda: _send_command({"command": "toggle_mic_mute"}),
-            "<alt>u": lambda: _send_command({"command": "toggle_universal_mute"}),
-
-            # AI preset switching
-            "<alt>q": lambda: _send_command({"command": "switch_preset", "preset_key": "primary"}),
-            "<alt>w": lambda: _send_command({"command": "switch_preset", "preset_key": "secondary"}),
-            "<alt>e": lambda: _send_command({"command": "switch_preset", "preset_key": "auto"}),
-
-            # Vision mode
-            "<alt>f": lambda: _send_command({"command": "toggle_vision_mode"}),
-            "<alt>v": lambda: _send_command({"command": "switch_vision_model"}),
-
-            # Screenshot queue
-            "<alt>s": lambda: _send_command({"command": "capture_screenshot"}),
-            "<alt>a": lambda: _send_command({"command": "process_screenshots"}),
-            "<alt>d": lambda: _send_command({"command": "reset_screenshot_queue"}),
-
-            # Reset interview
-            "<alt>r": lambda: _send_command({"command": "reset_interview"}),
+        # ── macOS: Option+letter produces Unicode chars (e.g. ⌥Z → 'Ω') ─
+        # Map them back to the base letter so hotkeys work correctly.
+        _OPTION_CHAR_MAP: dict = {
+            'å': 'a', 'ß': 's', '∂': 'd', 'ƒ': 'f', '©': 'g',
+            '˙': 'h', '∆': 'j', '˚': 'k', '¬': 'l', 'Ω': 'z',
+            '≈': 'x', 'ç': 'c', '√': 'v', '∫': 'b', '˜': 'n',
+            'µ': 'm', 'œ': 'q', '∑': 'w', '´': 'e', '®': 'r',
+            '†': 't', '¥': 'y', 'ü': 'u', 'ı': 'i', 'ø': 'o',
+            'π': 'p', '¡': '1', '™': '2', '£': '3', '¢': '4',
+            '∞': '5', '§': '6', '¶': '7', '•': '8', 'ª': '9', 'º': '0',
         }
 
-        # ── Separate listener for held-key scrolling ─────────────────────
+        # ── Action map keyed by base character ───────────────────────────
+        _HOTKEY_ACTIONS: dict = {
+            'z': lambda: self.toggle_visibility(),
+            'x': lambda: self.toggle_ghost_mode(),
+            '1': lambda: self.set_transparency(1.0),
+            '2': lambda: self.set_transparency(0.7),
+            '3': lambda: self.set_transparency(0.4),
+            'm': lambda: _send_command({"command": "toggle_mic_mute"}),
+            'u': lambda: _send_command({"command": "toggle_universal_mute"}),
+            'q': lambda: _send_command({"command": "switch_preset", "preset_key": "primary"}),
+            'w': lambda: _send_command({"command": "switch_preset", "preset_key": "secondary"}),
+            'e': lambda: _send_command({"command": "switch_preset", "preset_key": "auto"}),
+            'f': lambda: _send_command({"command": "toggle_vision_mode"}),
+            'v': lambda: _send_command({"command": "switch_vision_model"}),
+            's': lambda: _send_command({"command": "capture_screenshot"}),
+            'a': lambda: _send_command({"command": "process_screenshots"}),
+            'd': lambda: _send_command({"command": "reset_screenshot_queue"}),
+            'r': lambda: _send_command({"command": "reset_interview"}),
+        }
+
+        # ── Single unified listener (hotkeys + scroll) ───────────────────
         _active_keys: set = set()
+        _ALT_KEYS = (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r)
 
         def _on_press(key) -> None:
-            """Track held keys and start continuous scroll when ⌥↑ or ⌥↓ is detected."""
+            """Track held keys; dispatch hotkeys and start scroll on ⌥↑/⌥↓."""
             _active_keys.add(key)
-            is_alt = any(
-                k in _active_keys
-                for k in (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r)
-            )
+            is_alt = any(k in _active_keys for k in _ALT_KEYS)
+
             if is_alt:
+                # ── Scroll ───────────────────────────────────────────────
                 if key == keyboard.Key.up:
                     self._start_scroll("up")
-                elif key == keyboard.Key.down:
+                    return
+                if key == keyboard.Key.down:
                     self._start_scroll("down")
+                    return
+
+                # ── Hotkey ───────────────────────────────────────────────
+                char = None
+                try:
+                    raw = key.char
+                    if raw:
+                        # Resolve Option-modified unicode back to base char
+                        char = _OPTION_CHAR_MAP.get(raw, raw).lower()
+                except AttributeError:
+                    pass
+
+                if char and char in _HOTKEY_ACTIONS:
+                    Thread(target=_HOTKEY_ACTIONS[char], daemon=True).start()
 
         def _on_release(key) -> None:
-            """Stop scrolling when an arrow key or the Option/Alt modifier is released."""
+            """Stop scrolling when arrow or Option key is released."""
             _active_keys.discard(key)
-            # Stop scrolling when the arrow key is released
             if key in (keyboard.Key.up, keyboard.Key.down):
                 self._stop_scroll()
-            # Also stop if the Option/Alt modifier itself is released first —
-            # otherwise the scroll thread keeps running until the arrow key arrives.
-            alt_keys = (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r)
-            if key in alt_keys:
-                still_alt = any(k in _active_keys for k in alt_keys)
-                if not still_alt:
+            if key in _ALT_KEYS:
+                if not any(k in _active_keys for k in _ALT_KEYS):
                     self._stop_scroll()
 
         try:
-            self.hotkey_listener = keyboard.GlobalHotKeys(HOTKEYS)
-            self.hotkey_listener.start()
-
             self._scroll_listener = keyboard.Listener(
                 on_press=_on_press, on_release=_on_release
             )
             self._scroll_listener.start()
-
             print("✅ Global hotkey listener active")
             print("   ⌥Z=hide  ⌥X=ghost  ⌥1-3=opacity  ⌥M=mute  ⌥S=screenshot  ⌥A=analyze")
         except Exception as exc:

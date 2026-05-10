@@ -155,7 +155,8 @@ class GlobalCommandMonitor:
                 self._js(f'if(window.switchPreset)window.switchPreset("{pk}")')
             elif command == "set_transparency":
                 # Map string names to the numeric levels exposed by window.setTransparencyLevel()
-                # (1 = 20%, 2 = 40%, 3 = 60%, 4 = 70%/semi, 5 = 100%/opaque)
+                # transparencyLevels = [0.2, 0.4, 0.6, 0.8, 1.0] (index 0-based, level 1-based)
+                # 1=20%, 2=40%, 3=60%, 4=80%/semi, 5=100%/opaque
                 level_map = {"transparent": 1, "semi": 4, "opaque": 5}
                 level = level_map.get(command_data.get("level", "opaque"))
                 if level is None:
@@ -170,14 +171,6 @@ class GlobalCommandMonitor:
                 self._js('if(window.switchVisionModel)window.switchVisionModel()')
             elif command == "reset_interview":
                 self._js('if(window.resetInterview)window.resetInterview()')
-            elif command == "scroll":
-                direction = command_data.get("direction", "down")
-                amount = command_data.get("amount", 150)
-                scroll_amount = -amount if direction == "up" else amount
-                self._js(
-                    f'document.getElementById("conversation-stream")'
-                    f'.scrollBy({{top:{scroll_amount},left:0,behavior:"smooth"}})'
-                )
             else:
                 print(f"⚠️ Unknown global command: {command}")
                 return False
@@ -187,17 +180,31 @@ class GlobalCommandMonitor:
             return False
 
     def _js(self, code: str) -> None:
-        """Execute JavaScript in the pywebview window."""
-        if webview.windows:
-            win = webview.windows[0]
-            time.sleep(0.05)
+        """Execute JavaScript in the pywebview window.
+
+        Runs evaluate_js off the asyncio event loop via run_in_executor so the
+        50 ms+ synchronous IPC call does not block the shared asyncio thread
+        (which also serves Uvicorn and the session-cleanup task).
+        Logs the original exception before attempting the setTimeout fallback.
+        """
+        if not webview.windows:
+            return
+        win = webview.windows[0]
+        loop = asyncio.get_event_loop()
+
+        def _run() -> None:
             try:
                 win.evaluate_js(code)
-            except Exception:
-                # Wrap in setTimeout as fallback
-                win.evaluate_js(
-                    f"setTimeout(()=>{{try{{{code}}}catch(e){{console.warn(e)}}}},100)"
-                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"⚠️ evaluate_js failed ({exc!r}); retrying via setTimeout")
+                try:
+                    win.evaluate_js(
+                        f"setTimeout(()=>{{try{{{code}}}catch(e){{console.warn(e)}}}},100)"
+                    )
+                except Exception as exc2:
+                    print(f"❌ evaluate_js fallback also failed: {exc2!r}")
+
+        loop.run_in_executor(None, _run)
 
 
 command_monitor = GlobalCommandMonitor()

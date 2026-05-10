@@ -395,17 +395,21 @@ class WindowManager:
     # ------------------------------------------------------------------ #
 
     def start_hotkey_listener(self) -> None:
-        """
-        Start listening for global keyboard shortcuts using pynput.
+        """Start global keyboard shortcuts using AppKit NSEvent monitors.
 
-        macOS requirement: the app (or terminal running it) must have
-        Accessibility permission.
-        Grant it in:  System Settings → Privacy & Security → Accessibility
+        NSEvent.addGlobalMonitorForEventsMatchingMask_handler_ is the native
+        macOS API for system-wide key monitoring.  It runs inside the existing
+        NSApplication run loop (started by pywebview) so there is no CFRunLoop
+        conflict and no SIGTRAP.
 
-        Hotkeys use the Option key (⌥), which pynput maps as keyboard.Key.alt.
-        This matches the original Windows Alt+key shortcuts exactly.
+        event.charactersIgnoringModifiers() returns the base letter regardless
+        of which modifier keys are held, so Option+Z always yields 'z' — no
+        unicode translation table is required.
+
+        Requires Accessibility permission in
+        System Settings → Privacy & Security → Accessibility.
         """
-        print("⌨️  Starting global hotkey listener (pynput)…")
+        print("⌨️  Starting global hotkey listener (NSEvent)…")
         if _has_accessibility_permission():
             print("   ✅ Accessibility permission granted — hotkeys active")
         else:
@@ -430,18 +434,6 @@ class WindowManager:
             except Exception as exc:
                 print(f"⚠️  Could not write hotkey command: {exc}")
 
-        # ── macOS: Option+letter produces Unicode chars (e.g. ⌥Z → 'Ω') ─
-        # Map them back to the base letter so hotkeys work correctly.
-        _OPTION_CHAR_MAP: dict = {
-            'å': 'a', 'ß': 's', '∂': 'd', 'ƒ': 'f', '©': 'g',
-            '˙': 'h', '∆': 'j', '˚': 'k', '¬': 'l', 'Ω': 'z',
-            '≈': 'x', 'ç': 'c', '√': 'v', '∫': 'b', '˜': 'n',
-            'µ': 'm', 'œ': 'q', '∑': 'w', '´': 'e', '®': 'r',
-            '†': 't', '¥': 'y', 'ü': 'u', 'ı': 'i', 'ø': 'o',
-            'π': 'p', '¡': '1', '™': '2', '£': '3', '¢': '4',
-            '∞': '5', '§': '6', '¶': '7', '•': '8', 'ª': '9', 'º': '0',
-        }
-
         # ── Action map keyed by base character ───────────────────────────
         _HOTKEY_ACTIONS: dict = {
             'z': lambda: self.toggle_visibility(),
@@ -462,55 +454,62 @@ class WindowManager:
             'r': lambda: _send_command({"command": "reset_interview"}),
         }
 
-        # ── Single unified listener (hotkeys + scroll) ───────────────────
-        _active_keys: set = set()
-        _ALT_KEYS = (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r)
+        # ── NSEvent mask constants ────────────────────────────────────────
+        _NSKeyDownMask    = 1 << 10   # 1024
+        _NSKeyUpMask      = 1 << 11   # 2048
+        _NSAltKeyMask     = 1 << 19   # NSAlternateKeyMask
+        _KEY_ARROW_UP     = 126       # kVK_UpArrow
+        _KEY_ARROW_DOWN   = 125       # kVK_DownArrow
 
-        def _on_press(key) -> None:
-            """Track held keys; dispatch hotkeys and start scroll on ⌥↑/⌥↓."""
-            _active_keys.add(key)
-            is_alt = any(k in _active_keys for k in _ALT_KEYS)
+        # ── Key-down handler ─────────────────────────────────────────────
+        def _on_key_down(event) -> None:
+            """Dispatch hotkeys and start scroll on ⌥↑ / ⌥↓."""
+            if not (event.modifierFlags() & _NSAltKeyMask):
+                return
 
-            if is_alt:
-                # ── Scroll ───────────────────────────────────────────────
-                if key == keyboard.Key.up:
-                    self._start_scroll("up")
-                    return
-                if key == keyboard.Key.down:
-                    self._start_scroll("down")
-                    return
+            key_code = event.keyCode()
 
-                # ── Hotkey ───────────────────────────────────────────────
-                char = None
-                try:
-                    raw = key.char
-                    if raw:
-                        # Resolve Option-modified unicode back to base char
-                        char = _OPTION_CHAR_MAP.get(raw, raw).lower()
-                except AttributeError:
-                    pass
+            # Scroll ─────────────────────────────────────────────────────
+            if key_code == _KEY_ARROW_UP:
+                self._start_scroll("up")
+                return
+            if key_code == _KEY_ARROW_DOWN:
+                self._start_scroll("down")
+                return
 
-                if char and char in _HOTKEY_ACTIONS:
-                    Thread(target=_HOTKEY_ACTIONS[char], daemon=True).start()
+            # Hotkey ─────────────────────────────────────────────────────
+            # charactersIgnoringModifiers() gives 'z' even for Option+Z
+            chars = event.charactersIgnoringModifiers()
+            if chars:
+                action = _HOTKEY_ACTIONS.get(chars.lower())
+                if action:
+                    Thread(target=action, daemon=True).start()
 
-        def _on_release(key) -> None:
-            """Stop scrolling when arrow or Option key is released."""
-            _active_keys.discard(key)
-            if key in (keyboard.Key.up, keyboard.Key.down):
+        # ── Key-up handler ───────────────────────────────────────────────
+        def _on_key_up(event) -> None:
+            """Stop scroll when ↑/↓ or Option is released."""
+            key_code = event.keyCode()
+            flags    = event.modifierFlags()
+
+            if key_code in (_KEY_ARROW_UP, _KEY_ARROW_DOWN):
                 self._stop_scroll()
-            if key in _ALT_KEYS:
-                if not any(k in _active_keys for k in _ALT_KEYS):
-                    self._stop_scroll()
+            # Option released → stop any ongoing scroll
+            if not (flags & _NSAltKeyMask):
+                self._stop_scroll()
 
+        # ── Register monitors ────────────────────────────────────────────
         try:
-            self._scroll_listener = keyboard.Listener(
-                on_press=_on_press, on_release=_on_release
+            from AppKit import NSEvent  # already imported at module level; re-bind locally
+            self._key_down_monitor = NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+                _NSKeyDownMask, _on_key_down
             )
-            self._scroll_listener.start()
-            print("✅ Global hotkey listener active")
+            self._key_up_monitor = NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+                _NSKeyUpMask, _on_key_up
+            )
+            print("✅ Global hotkey listener active (NSEvent)")
             print("   ⌥Z=hide  ⌥X=ghost  ⌥1-3=opacity  ⌥M=mute  ⌥S=screenshot  ⌥A=analyze")
         except Exception as exc:
-            print(f"❌ Failed to start hotkey listener: {exc}")
+            print(f"❌ Failed to register NSEvent monitors: {exc}")
             print("   💡 Grant Accessibility permission and restart the app.")
 
     # ------------------------------------------------------------------ #

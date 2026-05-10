@@ -86,17 +86,11 @@ export async function startAudioProcessing(micId, onAudioData) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         console.log(`🎵 AudioContext created: ${audioContext.sampleRate}Hz (state: ${audioContext.state})`);
 
-        // (d) Start loading AudioWorklet module — initiated synchronously,
-        //     awaited below. Runs in parallel while screen picker is open.
-        const addModulePromise = audioContext.audioWorklet.addModule('/static/js/audio_processor.js');
-
         // ── PHASE 2: Await all concurrent operations ──────────────────────────────
         [micStream, systemStream] = await Promise.all([
             micStreamPromise,
             displayMediaPromise,
         ]);
-        await addModulePromise;
-        console.log('🎛️ AudioWorklet module loaded');
 
         if (!micStream) {
             console.error('Could not get microphone stream.');
@@ -108,10 +102,17 @@ export async function startAudioProcessing(micId, onAudioData) {
         }
 
         // WebKit may suspend AudioContext while the screen picker was open.
+        // We MUST resume it before calling addModule, as WebKit can deadlock
+        // if addModule is called while suspended.
         if (audioContext.state === 'suspended') {
             await audioContext.resume();
             console.log('▶️ AudioContext resumed');
         }
+
+        // NOW load the worklet module, when context is definitely running
+        await audioContext.audioWorklet.addModule('/static/js/audio_processor.js');
+        console.log('🎛️ AudioWorklet module loaded');
+
 
         // ── PHASE 3: Build audio graph ────────────────────────────────────────────
         // 3. Create a single mixed processor for better diarization

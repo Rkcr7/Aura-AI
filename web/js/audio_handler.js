@@ -148,11 +148,21 @@ export async function startAudioProcessing(micId, onAudioData) {
 
         // 4. Connect both sources to the mixed processor with mute control
         const micSource = audioContext.createMediaStreamSource(micStream);
-        // systemStream may be null in mic-only mode (getDisplayMedia declined/timed out)
-        const systemSource = systemStream
+
+        // On macOS, getDisplayMedia typically returns a video-only stream.
+        // createMediaStreamSource() throws if the stream has NO audio tracks.
+        // Guard: only create a system source when audio tracks actually exist.
+        const systemAudioTracks = systemStream ? systemStream.getAudioTracks() : [];
+        const hasSystemAudio = systemAudioTracks.length > 0;
+
+        if (systemStream && !hasSystemAudio) {
+            console.warn('⚠️ Screen shared but no system audio tracks found (common on macOS) — mic-only mode.');
+        }
+
+        const systemSource = hasSystemAudio
             ? audioContext.createMediaStreamSource(systemStream)
             : null;
-        
+
         // Create gain node for microphone muting
         micGainNode = audioContext.createGain();
         updateMicGainNode(); // Set initial gain based on mute manager state
@@ -164,22 +174,28 @@ export async function startAudioProcessing(micId, onAudioData) {
         micSource.connect(micGainNode);
         micGainNode.connect(mixedProcessor);
         
-        // System audio connects directly only when available
+        // System audio connects directly only when audio tracks were captured
         if (systemSource) {
             systemSource.connect(mixedProcessor);
+            console.log('🔊 System audio connected to mix');
         }
 
-        // Store the video track for screenshot reuse (only when screen sharing active)
+        // Store the video track for screenshots; stop it if no audio (reduces
+        // the macOS screen-recording indicator overhead when unneeded).
         if (systemStream) {
             const videoTracks = systemStream.getVideoTracks();
             if (videoTracks.length > 0) {
-                screenVideoTrack = videoTracks[0];
-                console.log("📹 Screen video track stored for screenshot reuse");
-            } else {
-                console.warn("⚠️ No video track found in display media stream");
+                if (hasSystemAudio) {
+                    screenVideoTrack = videoTracks[0];
+                    console.log('📹 Screen video track stored for screenshot reuse');
+                } else {
+                    // No audio — stop video track to dismiss the recording indicator
+                    videoTracks[0].stop();
+                    console.log('📹 Video track stopped (no system audio available)');
+                }
             }
         } else {
-            console.warn("⚠️ Screenshots unavailable in mic-only mode");
+            console.warn('⚠️ Screenshots unavailable in mic-only mode');
         }
 
         devLog("✅ Audio processing started successfully");

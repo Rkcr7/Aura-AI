@@ -51,16 +51,25 @@ export async function setupMicrophone() {
  */
 export async function startAudioProcessing(micId, onAudioData) {
     try {
-        // 1. Get Audio Streams
-        // IMPORTANT (WebKit): Both media requests must be initiated synchronously
-        // within the user-gesture handler. Sequential awaits consume the gesture
-        // trust token, causing getDisplayMedia to throw InvalidStateError on Safari/WKWebView.
-        // Promise.all launches both calls before yielding — both pass the gesture check.
+        // ── PHASE 1: AudioContext (must be within user-gesture on WebKit) ────────
+        // WebKit requires AudioContext to be created (or resumed) during a user
+        // gesture. Creating it here — before any awaits — ensures we're still
+        // within the gesture trust boundary from the "Start Interview" click.
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log(`🎵 AudioContext created: ${audioContext.sampleRate}Hz (state: ${audioContext.state})`);
+
+        // Pre-load the AudioWorklet module while still in gesture context.
+        // Loading from localhost is fast (~1 ms), so the gesture token survives.
+        await audioContext.audioWorklet.addModule('/static/js/audio_processor.js');
+        console.log('🎛️ AudioWorklet module loaded');
+
+        // ── PHASE 2: Get media streams ───────────────────────────────────────────
+        // Both calls must be launched synchronously (Promise.all) because WebKit
+        // burns the gesture token on the first awaited media request.
         //
-        // System audio (getDisplayMedia) is OPTIONAL on macOS:
-        //   • The screen-sharing picker can be hidden behind the always-on-top window.
-        //   • A 45-second timeout prevents the app hanging forever.
-        //   • If it fails/times out, mic-only mode is used (still captures your speech).
+        // System audio via getDisplayMedia is OPTIONAL on macOS — the screen
+        // picker may be hidden behind the always-on-top window, or macOS may
+        // not support system audio capture. A 45-second timeout prevents hanging.
         const withTimeout = (promise, ms, label) =>
             Promise.race([
                 promise,
@@ -94,11 +103,14 @@ export async function startAudioProcessing(micId, onAudioData) {
             console.warn("⚠️ Proceeding in mic-only mode — interviewer audio will not be captured.");
         }
 
-        // 2. Setup AudioContext and Worklet
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        console.log(`🎵 AudioContext: ${audioContext.sampleRate}Hz`); // Keep this as it's important for debugging
-        await audioContext.audioWorklet.addModule('/static/js/audio_processor.js');
-        
+        // WebKit may suspend AudioContext while the screen picker was open.
+        // Resume it before building the audio graph.
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+            console.log('▶️ AudioContext resumed');
+        }
+
+        // ── PHASE 3: Build audio graph ───────────────────────────────────────────
         // 3. Create a single mixed processor for better diarization
         const mixedProcessor = new AudioWorkletNode(audioContext, 'mixed-processor');
 

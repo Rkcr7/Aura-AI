@@ -1,3 +1,21 @@
+import ssl
+import certifi
+
+# ── macOS SSL fix ────────────────────────────────────────────────────────────
+# macOS Python doesn't include CA certificates, so every HTTPS/WSS call fails
+# with CERTIFICATE_VERIFY_FAILED. Monkey-patch ssl.create_default_context so
+# ALL libraries (requests, aiohttp, websockets, Deepgram SDK, etc.) use
+# certifi's bundle automatically — even if they don't read env vars.
+_certifi_ctx = ssl.create_default_context(cafile=certifi.where())
+
+_orig_create_default_context = ssl.create_default_context
+def _patched_create_default_context(*args, **kwargs):
+    if 'cafile' not in kwargs and not args:
+        return ssl.create_default_context(cafile=certifi.where())
+    return _orig_create_default_context(*args, **kwargs)
+ssl.create_default_context = _patched_create_default_context
+# ─────────────────────────────────────────────────────────────────────────────
+
 import webview
 import uvicorn
 from fastapi import FastAPI, Request
@@ -15,6 +33,7 @@ import socket
 import threading
 import shutil
 from pathlib import Path
+
 
 # --- Auto-create .env from .env.example if missing ---
 _env_path = Path(".env")

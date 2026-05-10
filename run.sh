@@ -21,6 +21,32 @@ echo "📥 Installing dependencies…"
 pip install -q --upgrade pip
 pip install -q -r requirements.txt
 
+# ── SSL Certificate Fix (macOS) ─────────────────────────────────────────────
+# macOS Python doesn't bundle CA certificates, causing:
+#   [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed
+# on all HTTPS/WSS connections (Deepgram WebSocket, AI providers, etc.)
+# We point Python at certifi's bundle (already in requirements.txt).
+SSL_CERT="$(python3 -c 'import certifi; print(certifi.where())' 2>/dev/null)"
+if [ -n "$SSL_CERT" ]; then
+    export SSL_CERT_FILE="$SSL_CERT"
+    export REQUESTS_CA_BUNDLE="$SSL_CERT"
+    echo "🔐 SSL certificates: $SSL_CERT"
+else
+    # Fallback: macOS system certificate store
+    SYS_CERT="/etc/ssl/cert.pem"
+    if [ -f "$SYS_CERT" ]; then
+        export SSL_CERT_FILE="$SYS_CERT"
+        export REQUESTS_CA_BUNDLE="$SYS_CERT"
+        echo "🔐 SSL certificates: $SYS_CERT (system fallback)"
+    else
+        echo "⚠️  Could not locate CA bundle — SSL connections may fail"
+    fi
+fi
+# ────────────────────────────────────────────────────────────────────────────
+
+# Kill any stale process on port 8002
+lsof -ti :8002 | xargs kill -9 2>/dev/null && echo "🧹 Cleared stale process on :8002" || true
+
 # Copy .env.example → .env if missing
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
     cp ".env.example" ".env"

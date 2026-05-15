@@ -9,10 +9,13 @@
 [![AI Powered](https://img.shields.io/badge/AI-Vision%20%7C%20Voice%20%7C%20Multi--Provider-purple.svg)](https://github.com)
 [![Stealth Mode](https://img.shields.io/badge/Stealth-Screen%20Capture%20Protected-green.svg)](https://github.com)
 [![Cost](https://img.shields.io/badge/Cost-Free%20%7C%20Open%20Source-brightgreen.svg)](https://github.com)
+[![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat&logo=windows&logoColor=white)](#-system-requirements)
 [![macOS](https://img.shields.io/badge/macOS-Sonoma%2014%2B-silver?style=flat&logo=apple&logoColor=white)](#-macos-installation)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
 
 > **🍎 macOS branch** — You are on the `macos` branch. For the primary Windows release see the [`master` branch](https://github.com/Rkcr7/Aura-AI/tree/master).
+
+> **🖥️ Platform Support** — **Windows 10/11** is the primary, fully-supported platform. A **macOS** port is fully implemented on this [`macos`](https://github.com/Rkcr7/Aura-AI/tree/macos) branch via AppKit/pyobjc — see the [macOS Installation](#-macos-installation) section below. macOS contributors welcome via PRs targeting the `macos` branch.
 
 ---
 
@@ -93,6 +96,8 @@ After granting any permission, **quit and relaunch** Aura — macOS does not app
 > **💸 $0. Forever.** — No subscriptions. No credits. No paywalls. Bring your own free API keys and **own** it.
 
 > **⚡ Stupidly Fast** — Powered by **Cerebras** (~2,000-3,000 tokens/sec) and **Groq** (~400-700 tokens/sec) — the two fastest AI inference engines on Earth. Answers hit your screen before the interviewer finishes talking. Nothing else comes close.
+
+> **🖥️ Platform Support** — **Windows 10/11** is the primary, fully-supported platform (this `master` branch). A **macOS** port is in active development on the [`macos`](https://github.com/Rkcr7/Aura-AI/tree/macos) branch — feature parity is **work-in-progress** and some stealth behaviors are limited compared to Windows. macOS contributors welcome via PRs targeting the `macos` branch.
 
 ---
 
@@ -465,7 +470,7 @@ Never leave the interview window. Control everything instantly with our ergonomi
 
 | Requirement | Details |
 |------------|---------|
-| **Operating System** | **Windows 10 or 11** (required — stealth features use Win32 APIs) |
+| **Operating System** | **Windows 10 or 11** — fully supported on `master` (stealth features use Win32 APIs). <br>**macOS** — work-in-progress port on the [`macos`](https://github.com/Rkcr7/Aura-AI/tree/macos) branch (AppKit/pyobjc, some features still being ported). |
 | **Python** | 3.8 or newer ([download here](https://www.python.org/downloads/)) — check **"Add Python to PATH"** during install |
 | **Microphone** | Any mic — built-in laptop mic, headset, or USB mic all work |
 | **Internet** | Required for API calls to Deepgram (STT) and LLM providers |

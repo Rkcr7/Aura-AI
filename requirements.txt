@@ -31,5 +31,9 @@ orjson
 # Async file I/O
 aiofiles
 
-# Global hotkeys (requires Accessibility permission on macOS)
+# Global hotkeys (requires Input Monitoring permission on macOS)
 pynput
+
+# macOS SSL — certifi provides CA bundle; run.sh exports SSL_CERT_FILE pointing here.
+# main.py also monkey-patches ssl.create_default_context as a belt-and-suspenders fallback.
+certifi

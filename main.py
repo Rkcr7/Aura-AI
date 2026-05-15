@@ -11,7 +11,8 @@ _certifi_ctx = ssl.create_default_context(cafile=certifi.where())
 _orig_create_default_context = ssl.create_default_context
 def _patched_create_default_context(*args, **kwargs):
     if 'cafile' not in kwargs and not args:
-        return ssl.create_default_context(cafile=certifi.where())
+        # Call the ORIGINAL (pre-patch) function — not the patched one — to avoid recursion.
+        return _orig_create_default_context(cafile=certifi.where())
     return _orig_create_default_context(*args, **kwargs)
 ssl.create_default_context = _patched_create_default_context
 # ─────────────────────────────────────────────────────────────────────────────
@@ -173,15 +174,19 @@ class GlobalCommandMonitor:
                 pk = command_data.get("preset_key", "primary")
                 self._js(f'if(window.switchPreset)window.switchPreset("{pk}")')
             elif command == "set_transparency":
-                # Map string names to the numeric levels exposed by window.setTransparencyLevel()
-                # transparencyLevels = [0.2, 0.4, 0.6, 0.8, 1.0] (index 0-based, level 1-based)
-                # 1=20%, 2=40%, 3=60%, 4=80%/semi, 5=100%/opaque
-                level_map = {"transparent": 1, "semi": 4, "opaque": 5}
-                level = level_map.get(command_data.get("level", "opaque"))
-                if level is None:
+                # Map named levels to exact float opacity values.
+                # These values are documented in the README and must match the Windows version:
+                #   transparent = 40% opacity (interview overlay mode)
+                #   semi        = 70% opacity (semi-transparent)
+                #   opaque      = 100% opacity (fully visible)
+                # We use window.setTransparency(float) directly so the exact values are
+                # preserved regardless of how the JS step-array is configured.
+                level_map = {"transparent": 0.4, "semi": 0.7, "opaque": 1.0}
+                alpha = level_map.get(command_data.get("level", "opaque"))
+                if alpha is None:
                     print(f"⚠️ Unknown transparency level: {command_data.get('level')}")
                     return False
-                self._js(f"if(window.setTransparencyLevel)window.setTransparencyLevel({level})")
+                self._js(f"if(window.setTransparency)window.setTransparency({alpha})")
             elif command == "toggle_mic_mute":
                 self._js('if(window.toggleMicMute)window.toggleMicMute()')
             elif command == "toggle_universal_mute":
@@ -416,9 +421,17 @@ def setup_webview_window():
                 def webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_type_decisionHandler_(
                     self, webview, origin, frame, media_type, handler
                 ):
-                    """Grant microphone (and camera) access automatically."""
-                    print("🎙️ WKUIDelegate: granting media capture permission")
-                    handler(1)  # 1 = WKPermissionDecisionGrant
+                    """Grant media capture only to the local Aura backend (127.0.0.1)."""
+                    try:
+                        host = str(origin.host()) if origin else ""
+                    except Exception:
+                        host = ""
+                    if host == "127.0.0.1":
+                        print("🎙️ WKUIDelegate: granting media capture for 127.0.0.1")
+                        handler(1)  # WKPermissionDecisionGrant
+                    else:
+                        print(f"🚫 WKUIDelegate: denying media capture for unknown origin '{host}'")
+                        handler(2)  # WKPermissionDecisionDeny
 
                 webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_type_decisionHandler_ = objc.selector(
                     webView_requestMediaCapturePermissionForOrigin_initiatedByFrame_type_decisionHandler_,

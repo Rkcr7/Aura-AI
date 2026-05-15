@@ -7,7 +7,7 @@
 #   - Screen-capture     → NSWindow.setSharingType_(NSWindowSharingNone)
 #   - Click-through      → NSWindow.setIgnoresMouseEvents_()
 #   - Show/hide          → NSWindow.orderOut_() / orderFrontRegardless()
-#   - Global hotkeys     → pynput (requires Accessibility permission)
+#   - Global hotkeys     → NSEvent (requires Input Monitoring permission)
 #
 # Public API is identical to the Windows version so main.py and api/ need no changes.
 
@@ -405,16 +405,16 @@ class WindowManager:
         of which modifier keys are held, so Option+Z always yields 'z' — no
         unicode translation table is required.
 
-        Requires Accessibility permission in
-        System Settings → Privacy & Security → Accessibility.
+        Requires Input Monitoring permission in
+        System Settings → Privacy & Security → Input Monitoring.
+        (NOT Accessibility — that controls UI automation, not key monitoring.)
         """
         print("⌨️  Starting global hotkey listener (NSEvent)…")
         if _has_accessibility_permission():
-            print("   ✅ Accessibility permission granted")
-        else:
-            print("   ℹ️  If hotkeys don't respond, grant Input Monitoring permission:")
-            print("      System Settings → Privacy & Security → Input Monitoring")
-            print("      Add Terminal.app → toggle ON → restart the app.")
+            print("   ✅ Accessibility OK (informational)")
+        print("   ℹ️  Global hotkeys require Input Monitoring permission:")
+        print("      System Settings → Privacy & Security → Input Monitoring")
+        print("      Add Terminal.app (or your shell) → toggle ON → restart Aura.")
 
         # ── Command file bridge ──────────────────────────────────────────
         def _send_command(data: dict) -> None:
@@ -509,7 +509,8 @@ class WindowManager:
             print("   ⌥Z=hide  ⌥X=ghost  ⌥1-3=opacity  ⌥M=mute  ⌥S=screenshot  ⌥A=analyze")
         except Exception as exc:
             print(f"❌ Failed to register NSEvent monitors: {exc}")
-            print("   💡 Grant Accessibility permission and restart the app.")
+            print("   💡 Grant Input Monitoring permission and restart the app.")
+            print("      System Settings → Privacy & Security → Input Monitoring")
 
     # ------------------------------------------------------------------ #
     # Screen-share indicator stubs (Windows-only feature — not on macOS)  #

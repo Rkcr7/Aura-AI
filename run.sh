@@ -44,8 +44,11 @@ else
 fi
 # ────────────────────────────────────────────────────────────────────────────
 
-# Kill any stale process on port 8002
-lsof -ti :8002 | xargs kill -9 2>/dev/null && echo "🧹 Cleared stale process on :8002" || true
+# Kill any stale process on port 8002 (silent when nothing is bound)
+pids=$(lsof -ti :8002 2>/dev/null)
+if [ -n "$pids" ]; then
+    echo "$pids" | xargs kill -9 2>/dev/null && echo "🧹 Cleared stale process on :8002"
+fi
 
 # Copy .env.example → .env if missing
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
@@ -60,11 +63,11 @@ if [ ! -f "ai_providers.json" ] && [ -f "ai_providers.example.json" ]; then
 fi
 
 echo ""
-echo "╔══════════════════════════════════════╗"
-echo "║          Aura AI — macOS             ║"
-echo "║  Global hotkeys require Accessibility║"
-echo "║  System Settings → Privacy → Access. ║"
-echo "╚══════════════════════════════════════╝"
+echo "╔══════════════════════════════════════════╗"
+echo "║           Aura AI — macOS                ║"
+echo "║  Hotkeys need: Input Monitoring           ║"
+echo "║  System Settings → Privacy → Input Mon.  ║"
+echo "╚══════════════════════════════════════════╝"
 echo ""
 
 python main.py

@@ -10,8 +10,86 @@
 [![Stealth Mode](https://img.shields.io/badge/Stealth-Screen%20Capture%20Protected-green.svg)](https://github.com)
 [![Cost](https://img.shields.io/badge/Cost-Free%20%7C%20Open%20Source-brightgreen.svg)](https://github.com)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=flat&logo=windows&logoColor=white)](#-system-requirements)
-[![macOS](https://img.shields.io/badge/macOS-In%20Progress-orange?style=flat&logo=apple&logoColor=white)](https://github.com/Rkcr7/Aura-AI/tree/macos)
+[![macOS](https://img.shields.io/badge/macOS-Sonoma%2014%2B-silver?style=flat&logo=apple&logoColor=white)](#-macos-installation)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
+
+> **🍎 macOS branch** — You are on the `macos` branch. For the primary Windows release see the [`master` branch](https://github.com/Rkcr7/Aura-AI/tree/master).
+
+> **🖥️ Platform Support** — **Windows 10/11** is the primary, fully-supported platform. A **macOS** port is fully implemented on this [`macos`](https://github.com/Rkcr7/Aura-AI/tree/macos) branch via AppKit/pyobjc — see the [macOS Installation](#-macos-installation) section below. macOS contributors welcome via PRs targeting the `macos` branch.
+
+---
+
+## 🍎 macOS Installation
+
+> **Windows users:** This is the macOS port branch. Head to [`master`](https://github.com/Rkcr7/Aura-AI/tree/master) for the Windows installer (`run.bat`).
+
+### Step 1 · Clone the macOS branch
+
+```bash
+git clone -b macos https://github.com/Rkcr7/Aura-AI.git
+cd Aura-AI
+```
+
+### Step 2 · Install & launch (one command)
+
+```bash
+bash run.sh
+```
+
+`run.sh` will:
+- Create a Python virtual environment (`.venv/`)
+- Install all dependencies (including `pyobjc` and `certifi`)
+- Export `SSL_CERT_FILE` so HTTPS/WSS connections work correctly on macOS
+- Copy `.env.example → .env` and `ai_providers.example.json → ai_providers.json` if missing
+- Launch Aura
+
+**Or manually:**
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+cp ai_providers.example.json ai_providers.json
+# Add your API keys to .env and ai_providers.json, then:
+SSL_CERT_FILE=$(python3 -m certifi) python main.py
+```
+
+### Step 3 · Add your API keys
+
+Edit `.env` — add your Deepgram key:
+```env
+DEEPGRAM_API_KEY="your_deepgram_key_here"
+```
+
+Edit `ai_providers.json` — add at least one LLM provider key (Groq, Cerebras, Gemini, or OpenRouter).
+
+### Step 4 · Grant macOS Permissions
+
+Aura needs three macOS permissions. Grant them **before first launch** or hotkeys and mic will silently fail.
+
+| Permission | Required For | Where to Grant |
+|---|---|---|
+| **Input Monitoring** ⚠️ | Global hotkeys (`⌥Z`, `⌥1`–`⌥3`, etc.) | System Settings → Privacy & Security → **Input Monitoring** → add Terminal / your shell |
+| **Screen Recording** | Vision AI screenshot capture | System Settings → Privacy & Security → **Screen Recording** → add Terminal / your shell |
+| **Microphone** | Real-time STT transcription | System Settings → Privacy & Security → **Microphone** → add Terminal / your shell |
+
+> **⚠️ Input Monitoring is critical** — without it, `NSEvent` global monitors register but hotkeys silently do nothing. If hotkeys don't work after launch, check this first.
+
+After granting any permission, **quit and relaunch** Aura — macOS does not apply permission changes to running processes.
+
+### macOS Feature Status
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Screen capture protection | ✅ Native | `NSWindowSharingNone` — works with Zoom, Teams, QuickTime |
+| Always-on-top overlay | ✅ Native | `NSFloatingWindowLevel` |
+| Transparency (⌥1/2/3) | ✅ Native | `NSWindow.setAlphaValue_()` — 40% / 70% / 100% |
+| Ghost / click-through mode | ✅ Native | `NSWindow.setIgnoresMouseEvents_()` |
+| Global hotkeys | ✅ Native | `NSEvent` monitors — requires Input Monitoring permission |
+| Hide from Dock | ✅ | Handled via window level |
+| Silent launch | 🔧 Use `run.sh` | `run.bat` / `silent_run.vbs` are Windows-only |
+
+---
 
 > **👻 Invisible by Design** — Screen capture protected. Hidden from taskbar. Undetectable by Zoom, Teams, Google Meet, and every proctoring tool on the market.
 

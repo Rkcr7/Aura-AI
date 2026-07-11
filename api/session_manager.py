@@ -8,6 +8,7 @@ from .utils import send_json
 from services.llm_service import MultiLLMManager
 from services.stt_service import DeepgramManager
 from services.vision_service import vision_service
+from services.system_audio_capture import SystemAudioCapture
 
 # Session TTL: 30 minutes of inactivity with no WebSocket connected
 SESSION_TTL_SECONDS = 30 * 60
@@ -22,6 +23,8 @@ class InterviewSession:
         self.websocket: Optional[WebSocket] = None
         self.llm_manager: Optional[MultiLLMManager] = None
         self.stt_manager: Optional[DeepgramManager] = None
+        self.system_stt_manager: Optional[DeepgramManager] = None
+        self.system_audio_capture: Optional[SystemAudioCapture] = None
         self.is_active: bool = False
         self.state: Dict[str, any] = {
             "is_muted": False,
@@ -210,8 +213,30 @@ class InterviewSession:
         user_languages = onboarding_context.get('selectedLanguages', [])
         self.stt_manager = DeepgramManager(self.on_transcript, user_languages)
         await self.stt_manager.start()
-        
+
+        # Native system-audio capture (ScreenCaptureKit): hears whatever is
+        # playing on the whole system (e.g. a Zoom/Meet call), which WKWebView
+        # cannot expose via getDisplayMedia() on macOS. This gets its OWN
+        # Deepgram connection rather than sharing stt_manager's — mixing two
+        # independently-timed raw PCM streams into one connection would just
+        # interleave unrelated audio, not mix it, and corrupt transcription.
+        # `on_transcript` is source-agnostic (keyed off self.state, not which
+        # connection produced the transcript) so it's safe to reuse directly.
+        # Best-effort: if permission isn't granted or capture fails, the
+        # interview still works in mic-only mode exactly as before.
+        self.system_stt_manager = DeepgramManager(self.on_transcript, user_languages)
+        await self.system_stt_manager.start()
+
+        self.system_audio_capture = SystemAudioCapture()
+        await self.system_audio_capture.start(self._on_system_audio_chunk)
+
         self.is_active = True
+
+    def _on_system_audio_chunk(self, pcm_bytes: bytes):
+        """Callback from SystemAudioCapture — runs on the asyncio loop thread
+        (scheduled via call_soon_threadsafe), so it's safe to create a task."""
+        if self.system_stt_manager and not self.state.get("is_universally_muted", False):
+            asyncio.create_task(self.system_stt_manager.send_audio(pcm_bytes))
 
     async def _process_aggregated_transcript(self):
         """Processes the buffered transcript after a period of silence."""
@@ -238,7 +263,7 @@ class InterviewSession:
 
         except Exception as e:
             print(f"❌ CRITICAL: Error processing transcript for session {self.session_id}: {e}")
-            await self._send_json("error", {"message": "Error processing transcript."})
+            await self._send_json("error", {"message": f"Error processing transcript: {e}"})
 
     async def on_transcript(self, data):
         """Callback from Deepgram. Handles transcript logic and silence detection."""
@@ -272,6 +297,12 @@ class InterviewSession:
 
     async def cleanup(self):
         """Cleans up resources for the session."""
+        if self.system_audio_capture:
+            await self.system_audio_capture.stop()
+            self.system_audio_capture = None
+        if self.system_stt_manager:
+            await self.system_stt_manager.finish()
+            self.system_stt_manager = None
         if self.stt_manager:
             await self.stt_manager.finish()
         if self.silence_timer and not self.silence_timer.done():

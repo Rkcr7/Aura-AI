@@ -33,6 +33,7 @@ import sys
 import socket
 import threading
 import shutil
+import platform
 from pathlib import Path
 
 
@@ -69,6 +70,89 @@ def find_free_port(preferred: int = 8002) -> int:
 # DEV_MODE is controlled via .env — see core/config.py
 DEV_MODE = settings.DEV_MODE
 print_config_debug()
+
+
+def _request_av_permission(media_type_name: str, label: str, emoji: str) -> None:
+    """Trigger the native macOS TCC permission dialog for a given AV media type.
+
+    getUserMedia() inside the WKWebView only surfaces WebKit's own prompt, which
+    is auto-granted by _AuraMicDelegate — it never touches the OS-level TCC
+    decision. Calling AVCaptureDevice.requestAccessForMediaType_ directly is
+    what actually makes macOS show the system "Aura Would Like to Access the
+    Microphone/Camera" dialog the first time the app runs.
+    """
+    try:
+        import AVFoundation
+
+        media_type = getattr(AVFoundation, media_type_name)
+        status = AVFoundation.AVCaptureDevice.authorizationStatusForMediaType_(media_type)
+        if status != 0:  # not AVAuthorizationStatusNotDetermined — already decided
+            print(f"{emoji} {label} authorization status: {status} (0=undetermined 1=restricted 2=denied 3=authorized)")
+            return
+
+        def _on_decided(granted: bool) -> None:
+            print(f"{emoji} {label} permission {'granted' if granted else 'denied'} by user")
+
+        print(f"{emoji} Requesting {label.lower()} permission…")
+        AVFoundation.AVCaptureDevice.requestAccessForMediaType_completionHandler_(media_type, _on_decided)
+    except Exception as exc:
+        print(f"⚠️ Could not request {label.lower()} permission: {exc}")
+
+
+def request_microphone_permission() -> None:
+    """Trigger the native macOS microphone permission dialog immediately at launch."""
+    if platform.system() != "Darwin":
+        return
+    _request_av_permission("AVMediaTypeAudio", "Microphone", "🎙️")
+
+
+def request_camera_permission() -> None:
+    """Trigger the native macOS camera permission dialog immediately at launch.
+
+    Aura doesn't use the camera today (vision mode captures the screen via
+    getDisplayMedia, not getUserMedia video), but this pre-authorizes it so a
+    future camera feature doesn't need its own first-run prompt path.
+    """
+    if platform.system() != "Darwin":
+        return
+    _request_av_permission("AVMediaTypeVideo", "Camera", "📷")
+
+
+def request_screen_recording_permission() -> None:
+    """Trigger the native macOS Screen Recording permission dialog immediately
+    at launch. This is what lets Aura hear system/meeting audio (see
+    services/system_audio_capture.py) — WKWebView cannot capture system audio
+    on macOS at all, so this is the only way to hear the interviewer's side
+    of a call.
+
+    Unlike mic/camera, granting Screen Recording does NOT take effect for an
+    already-running process — the user must fully quit and relaunch Aura
+    after clicking Allow for system-audio capture to actually start working.
+    """
+    if platform.system() != "Darwin":
+        return
+    try:
+        from services.system_audio_capture import (
+            has_screen_recording_permission,
+            request_screen_recording_permission as _request,
+        )
+
+        if has_screen_recording_permission():
+            print("🖥️ Screen Recording permission already granted (system audio capture available)")
+            return
+
+        print("🖥️ Requesting Screen Recording permission (for system/meeting audio capture)…")
+        _request()
+        print("   ℹ️ If you just granted it, fully quit and relaunch Aura for system audio to start working.")
+    except Exception as exc:
+        print(f"⚠️ Could not request Screen Recording permission: {exc}")
+
+
+# Note: there is no macOS TCC permission for audio *output* ("speaker").
+# Apps can play sound freely — only capture (microphone/camera) and a few
+# other sensitive categories (screen recording, input monitoring, etc.) are
+# gated. If audio isn't coming out, it's a device-selection/routing issue,
+# not a permission one — see window_manager for output device handling.
 
 
 # --- Global Command Monitor ---
@@ -378,7 +462,10 @@ def setup_webview_window():
 
         if not DEV_MODE:
             print("🛡️ Applying screen capture protection…")
-            ok = window_manager.apply_capture_protection(win)
+            # win.events.shown fires on a pywebview-internal background thread,
+            # but AppKit calls (NSWindow.setSharingType_ etc.) must run on the
+            # main thread or macOS raises SIGTRAP.
+            ok = window_manager._dispatch_to_main_thread(window_manager.apply_capture_protection, win)
             if ok:
                 print("✅ Screen capture protection applied!")
             else:
@@ -395,7 +482,7 @@ def setup_webview_window():
 
             # Always-on-top (NSFloatingWindowLevel)
             for attempt in range(3):
-                if window_manager.set_app_always_on_top(True):
+                if window_manager._dispatch_to_main_thread(window_manager.set_app_always_on_top, True):
                     print("📌 Window set to always-on-top")
                     break
                 print(f"⚠️ Always-on-top attempt {attempt + 1} failed, retrying…")
@@ -449,20 +536,25 @@ def setup_webview_window():
                         return found
                 return None
 
-            mic_delegate = _AuraMicDelegate.alloc().init()
-            for ns_window in NSApp.windows():
-                content = ns_window.contentView()
-                if content is None:
-                    continue
-                wkview = _find_wkwebview(content)
-                if wkview:
-                    # Remove gesture restriction for playback too
-                    wkview.configuration().setMediaTypesRequiringUserActionForPlayback_(0)
-                    wkview.setUIDelegate_(mic_delegate)
-                    # Pin to prevent garbage collection
-                    win._mic_delegate = mic_delegate
-                    print("🎙️ WKUIDelegate set — microphone will be auto-granted")
-                    break
+            def _install_mic_delegate():
+                # NSApp.windows()/contentView()/setUIDelegate_ etc. are AppKit
+                # calls and must run on the main thread.
+                mic_delegate = _AuraMicDelegate.alloc().init()
+                for ns_window in NSApp.windows():
+                    content = ns_window.contentView()
+                    if content is None:
+                        continue
+                    wkview = _find_wkwebview(content)
+                    if wkview:
+                        # Remove gesture restriction for playback too
+                        wkview.configuration().setMediaTypesRequiringUserActionForPlayback_(0)
+                        wkview.setUIDelegate_(mic_delegate)
+                        # Pin to prevent garbage collection
+                        win._mic_delegate = mic_delegate
+                        print("🎙️ WKUIDelegate set — microphone will be auto-granted")
+                        break
+
+            window_manager._dispatch_to_main_thread(_install_mic_delegate)
         except Exception as mic_exc:
             print(f"ℹ️ WKUIDelegate setup failed: {mic_exc}")
 
@@ -485,6 +577,10 @@ def main():
     """Application entry point: start async services, open pywebview window, run Cocoa loop."""
     print("🚀 Starting Aura (macOS — AppKit/Cocoa)")
     print("   📋 Architecture: pywebview/Cocoa on main thread, asyncio in background thread")
+
+    request_microphone_permission()
+    request_camera_permission()
+    request_screen_recording_permission()
 
     try:
         asyncio_service_thread.start()

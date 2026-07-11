@@ -341,9 +341,8 @@ class PresetManager {
         this.showNotification(title, message, details, type, healthResults);
     }
     
-    showErrorNotification(error, data = {}) {
-        const title = '❌ Preset Switch Failed';
-        const message = typeof error === 'string' ? error : 'Failed to switch AI model';
+    showErrorNotification(error, data = {}, title = '❌ Error') {
+        const message = typeof error === 'string' ? error : 'An unexpected error occurred';
         const details = data.available_presets ? 
             `Available presets: ${data.available_presets.join(', ')}` : 
             'Please check your configuration';

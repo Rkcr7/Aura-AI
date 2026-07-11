@@ -6,6 +6,9 @@ pywebview
 pyobjc-core
 pyobjc-framework-Cocoa
 pyobjc-framework-Quartz
+pyobjc-framework-AVFoundation
+pyobjc-framework-ScreenCaptureKit
+pyobjc-framework-CoreMedia
 
 # Web server
 fastapi

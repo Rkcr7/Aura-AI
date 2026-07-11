@@ -15,8 +15,10 @@ import os
 import platform
 import time
 import tempfile
+import threading
 from typing import Optional
 from threading import Thread
+from functools import partial
 
 import orjson
 import webview
@@ -78,7 +80,8 @@ if IS_MACOS:
         NSNormalWindowLevel,
         NSWindowSharingNone,
     )
-    from Foundation import NSPoint
+    from Foundation import NSPoint, NSRunLoop, NSTimer
+    from PyObjCTools import AppHelper
 else:
     # Graceful degradation if somehow imported on another platform
     NSApp = None
@@ -86,6 +89,58 @@ else:
     NSNormalWindowLevel = 0
     NSWindowSharingNone = 0
     NSPoint = None
+    NSRunLoop = None
+    NSTimer = None
+    AppHelper = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main-thread dispatcher for AppKit operations
+# ─────────────────────────────────────────────────────────────────────────────
+def _dispatch_to_main_thread(func, *args, **kwargs):
+    """
+    Run a callable on the main thread and return its result.
+    AppKit operations (NSWindow, NSApp, WKWebView, ...) MUST run on the main
+    thread — calling them from a background thread (e.g. pywebview's
+    `shown`/hotkey callbacks) raises SIGTRAP ("Must only be used from the
+    main thread") on modern macOS.
+
+    Uses PyObjCTools.AppHelper.callAfter, which schedules the call on the
+    main run loop, and blocks the calling thread until it has run so the
+    return value (or exception) can be propagated back synchronously.
+    """
+    if not IS_MACOS or NSApp is None or AppHelper is None:
+        # Not on macOS or AppKit not available — run directly
+        return func(*args, **kwargs)
+
+    if threading.current_thread() is threading.main_thread():
+        # Already on the main thread — no dispatch needed
+        return func(*args, **kwargs)
+
+    done = threading.Event()
+    outcome = {}
+
+    def _run_on_main():
+        try:
+            outcome["result"] = func(*args, **kwargs)
+        except Exception as exc:
+            outcome["error"] = exc
+        finally:
+            done.set()
+
+    try:
+        AppHelper.callAfter(_run_on_main)
+    except Exception as exc:
+        print(f"⚠️  Could not dispatch to main thread: {exc}")
+        return func(*args, **kwargs)
+
+    if not done.wait(timeout=5.0):
+        print("⚠️  Main-thread dispatch timed out")
+        return None
+    if "error" in outcome:
+        print(f"⚠️  Error in main-thread dispatch: {outcome['error']}")
+        return None
+    return outcome.get("result")
 
 
 # ---------------------------------------------------------------------------
@@ -434,12 +489,14 @@ class WindowManager:
                 print(f"⚠️  Could not write hotkey command: {exc}")
 
         # ── Action map keyed by base character ───────────────────────────
+        # CRITICAL: All AppKit operations (z, x, 1, 2, 3) MUST run on main thread!
+        # Command-file operations (m, u, q, w, e, f, v, s, a, d, r) are thread-safe.
         _HOTKEY_ACTIONS: dict = {
-            'z': lambda: self.toggle_visibility(),
-            'x': lambda: self.toggle_ghost_mode(),
-            '1': lambda: self.set_transparency(1.0),
-            '2': lambda: self.set_transparency(0.7),
-            '3': lambda: self.set_transparency(0.4),
+            'z': lambda: _dispatch_to_main_thread(self.toggle_visibility),
+            'x': lambda: _dispatch_to_main_thread(self.toggle_ghost_mode),
+            '1': lambda: _dispatch_to_main_thread(self.set_transparency, 1.0),
+            '2': lambda: _dispatch_to_main_thread(self.set_transparency, 0.7),
+            '3': lambda: _dispatch_to_main_thread(self.set_transparency, 0.4),
             'm': lambda: _send_command({"command": "toggle_mic_mute"}),
             'u': lambda: _send_command({"command": "toggle_universal_mute"}),
             'q': lambda: _send_command({"command": "switch_preset", "preset_key": "primary"}),
@@ -462,7 +519,13 @@ class WindowManager:
 
         # ── Key-down handler ─────────────────────────────────────────────
         def _on_key_down(event) -> None:
-            """Dispatch hotkeys and start scroll on ⌥↑ / ⌥↓."""
+            """Dispatch hotkeys and start scroll on ⌥↑ / ⌥↓.
+            
+            CRITICAL: AppKit window operations MUST run on the main thread!
+            For GUI operations (z, x, 1-3), we dispatch to main thread.
+            For file-based commands (m, u, q, w, e, f, v, s, a, d, r),
+            we can safely run on a background thread since they only write JSON files.
+            """
             if not (event.modifierFlags() & _NSAltKeyMask):
                 return
 
@@ -482,7 +545,9 @@ class WindowManager:
             if chars:
                 action = _HOTKEY_ACTIONS.get(chars.lower())
                 if action:
-                    Thread(target=action, daemon=True).start()
+                    # Run the action directly — _dispatch_to_main_thread handles
+                    # AppKit operations, and file-write commands are thread-safe
+                    action()
 
         # ── Key-up handler ───────────────────────────────────────────────
         def _on_key_up(event) -> None:

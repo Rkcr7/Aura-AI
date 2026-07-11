@@ -235,7 +235,7 @@ export class WebSocketHandler {
 
     handlePresetSwitchFailed(payload) {
         if (window.presetManager) {
-            presetManager.showErrorNotification(payload.error, payload);
+            presetManager.showErrorNotification(payload.error, payload, '❌ Preset Switch Failed');
         }
     }
     

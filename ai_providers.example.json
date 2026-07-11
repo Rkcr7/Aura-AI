@@ -2,7 +2,7 @@
     {
         "name": "Groq",
         "baseURL": "https://api.groq.com/openai/v1",
-        "apiKey": "YOUR_GROQ_API_KEY_HERE",
+        "apiKey": "YOUR_GROQ_API_KEY_1",
         "apiKeys": [
             "YOUR_GROQ_API_KEY_1",
             "YOUR_GROQ_API_KEY_2"
@@ -30,7 +30,7 @@
     {
         "name": "Cerebras",
         "baseURL": "https://api.cerebras.ai/v1",
-        "apiKey": "YOUR_CEREBRAS_API_KEY_HERE",
+        "apiKey": "YOUR_CEREBRAS_API_KEY_1",
         "apiKeys": [
             "YOUR_CEREBRAS_API_KEY_1",
             "YOUR_CEREBRAS_API_KEY_2"
@@ -51,7 +51,7 @@
     {
         "name": "Gemini",
         "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "apiKey": "YOUR_GEMINI_API_KEY_HERE",
+        "apiKey": "YOUR_GEMINI_API_KEY_1",
         "apiKeys": [
             "YOUR_GEMINI_API_KEY_1",
             "YOUR_GEMINI_API_KEY_2"
@@ -77,9 +77,10 @@
     {
         "name": "OpenRouter",
         "baseURL": "https://openrouter.ai/api/v1",
-        "apiKey": "YOUR_OPENROUTER_API_KEY_HERE",
+        "apiKey": "YOUR_OPENROUTER_API_KEY_1",
         "apiKeys": [
-            "YOUR_OPENROUTER_API_KEY_1"
+            "YOUR_OPENROUTER_API_KEY_1",
+            "YOUR_OPENROUTER_API_KEY_2"
         ],
         "models": [
             {

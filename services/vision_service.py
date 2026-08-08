@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from openai import AsyncOpenAI, APIStatusError
 from core.config import settings
+from core.key_utils import usable_keys
 
 class VisionManager:
     """Vision AI Manager for screenshot analysis and code problem solving"""
@@ -21,8 +22,11 @@ class VisionManager:
         self.last_success_time = datetime.now()
         self.context_manager = None  # Will be set by VisionService
         
-        # Key rotation support
-        self.api_keys = api_keys if api_keys and len(api_keys) > 0 else [api_key]
+        # Key rotation support — drop blank/placeholder entries so a half-filled
+        # config (real "apiKey" + untouched "apiKeys" placeholders) still works.
+        self.api_keys = usable_keys(api_keys) or usable_keys([api_key]) or [""]
+        if not self.api_keys[0]:
+            print(f"⚠️ No usable vision API key for {provider_name} — set 'apiKey' or 'apiKeys' in ai_providers.json")
         self.api_key = self.api_keys[0]
         self._key_index = 0
         self._key_lock = threading.Lock()
@@ -232,7 +236,7 @@ class VisionService:
                     manager = VisionManager(
                         provider_name=provider_name,
                         base_url=provider_config["baseURL"],
-                        api_key=provider_config.get("apiKey", provider_config.get("apiKeys", [""])[0]),
+                        api_key=provider_config.get("apiKey", ""),
                         model_name=model_config["modelName"],
                         request_params=model_config.get("requestParams"),
                         api_keys=provider_config.get("apiKeys")

@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from openai import AsyncOpenAI, APIStatusError
 from core.config import settings
+from core.key_utils import usable_keys
 from core.prompts import get_interview_answer_prompt, get_quick_response_prompt
 from services.context_manager import PersistentContextManager
 import threading
@@ -24,8 +25,11 @@ class LLMManager:
         self.error_count = 0
         self.last_success_time = datetime.now()
         
-        # Key rotation support
-        self.api_keys = api_keys if api_keys and len(api_keys) > 0 else [api_key]
+        # Key rotation support — drop blank/placeholder entries so a half-filled
+        # config (real "apiKey" + untouched "apiKeys" placeholders) still works.
+        self.api_keys = usable_keys(api_keys) or usable_keys([api_key]) or [""]
+        if not self.api_keys[0]:
+            print(f"⚠️ No usable API key for {provider_name} — set 'apiKey' or 'apiKeys' in ai_providers.json")
         self.api_key = self.api_keys[0]  # Current active key
         self._key_index = 0
         self._key_lock = threading.Lock()
@@ -261,7 +265,7 @@ class MultiLLMManager:
             self.providers["primary"] = LLMManager(
                 provider_name=primary_provider_config["name"],
                 base_url=primary_provider_config["baseURL"],
-                api_key=primary_provider_config.get("apiKey", primary_provider_config.get("apiKeys", [""])[0]),
+                api_key=primary_provider_config.get("apiKey", ""),
                 model_name=primary_model_config["modelName"],
                 request_params=primary_model_config.get("requestParams"),
                 api_keys=primary_provider_config.get("apiKeys")
@@ -286,7 +290,7 @@ class MultiLLMManager:
                     self.providers["secondary"] = LLMManager(
                         provider_name=secondary_provider_config["name"],
                         base_url=secondary_provider_config["baseURL"],
-                        api_key=secondary_provider_config.get("apiKey", secondary_provider_config.get("apiKeys", [""])[0]),
+                        api_key=secondary_provider_config.get("apiKey", ""),
                         model_name=secondary_model_config["modelName"],
                         request_params=secondary_model_config.get("requestParams"),
                         api_keys=secondary_provider_config.get("apiKeys")

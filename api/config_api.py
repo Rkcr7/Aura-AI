@@ -3,6 +3,7 @@ import aiofiles
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from core.config import settings
+from core.key_utils import resolve_provider_keys
 import window_manager
 from services.llm_service import verify_provider_connection
 from services.vision_service import verify_vision_provider_connection
@@ -145,10 +146,11 @@ async def verify_ai_provider(request: ProviderVerifyRequest):
         if not provider_config:
             raise HTTPException(status_code=404, detail=f"Provider '{request.name}' not found.")
 
-        # Get all available keys, with fallback to single apiKey
-        api_keys = provider_config.get("apiKeys", [provider_config.get("apiKey", "")])
+        # Get all usable keys (blank/placeholder entries filtered out)
+        api_keys = resolve_provider_keys(provider_config)
         if not api_keys:
-            api_keys = [provider_config.get("apiKey", "")]
+            print(f"⚠️ No usable API key configured for {request.name}")
+            return {"success": False, "error": "No API key configured for this provider."}
 
         # Try each key until one works
         for i, key in enumerate(api_keys):
@@ -200,10 +202,11 @@ async def verify_vision_ai_provider(request: ProviderVerifyRequest):
         if not model_config:
             raise HTTPException(status_code=400, detail=f"Model '{request.model}' is not a vision model for '{request.name}'.")
 
-        # Get all available keys, with fallback to single apiKey
-        api_keys = provider_config.get("apiKeys", [provider_config.get("apiKey", "")])
+        # Get all usable keys (blank/placeholder entries filtered out)
+        api_keys = resolve_provider_keys(provider_config)
         if not api_keys:
-            api_keys = [provider_config.get("apiKey", "")]
+            print(f"⚠️ No usable vision API key configured for {request.name}")
+            return {"success": False, "error": "No API key configured for this provider."}
 
         # Try each key until one works
         for i, key in enumerate(api_keys):

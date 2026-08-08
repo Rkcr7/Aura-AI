@@ -278,6 +278,26 @@ class ScreenshotService {
                     border-left: 4px solid #48bb78;
                     z-index: 10000;
                     animation: slideInRight 0.3s ease-out;
+                    /* Matches the preset and transparency toasts, which are both
+                       already click-through. Without this the toast swallows
+                       clicks in the top-right corner for its full 3s lifetime. */
+                    pointer-events: none;
+                }
+
+                /* showNotification() is called with 'error' for Permission Denied,
+                   Capture Timeout, Capture Failed, Queue Full, No Vision Model,
+                   Analysis Failed and Processing Error, and 'warning' for Queue
+                   Cleared, but every one of them inherited the success green. */
+                .capture-notification.error {
+                    border-left-color: #f56565;
+                }
+
+                .capture-notification.warning {
+                    border-left-color: #ecc94b;
+                }
+
+                .capture-notification.info {
+                    border-left-color: #6366f1;
                 }
                 
                 @keyframes slideInRight {

@@ -69,8 +69,13 @@ export class MarkdownProcessor {
         // Step 1: Extract and protect code blocks
         const { textWithPlaceholders, codeBlocks } = this.extractCodeBlocks(text);
         
+        // Step 1b: Neutralize raw HTML in the remaining source BEFORE any markdown
+        // substitution. Fenced code blocks were already pulled out above, so their
+        // content is untouched here and stays escaped exactly once at render time.
+        const escapedText = this.escapeMarkdownSource(textWithPlaceholders);
+
         // Step 2: Parse block elements (headers, lists, paragraphs, tables, etc.)
-        const blockParsed = this.parseBlockElements(textWithPlaceholders);
+        const blockParsed = this.parseBlockElements(escapedText);
         
         // Step 3: Parse inline elements within each block
         const inlineParsed = this.parseInlineElements(blockParsed);
@@ -379,12 +384,12 @@ export class MarkdownProcessor {
         // Process in order of precedence
         // 1. Images (before links)
         text = text.replace(this.patterns.images, (match, alt, src) => {
-            return `<img class="markdown-image" src="${this.escapeHtml(src)}" alt="${this.escapeHtml(alt)}" />`;
+            return `<img class="markdown-image" src="${src}" alt="${alt}" />`;
         });
         
         // 2. Links
         text = text.replace(this.patterns.links, (match, linkText, url) => {
-            return `<a class="markdown-link" href="${this.escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+            return `<a class="markdown-link" href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
         });
         
         // 3. Inline code (highest priority for text formatting - don't format inside)
@@ -394,7 +399,7 @@ export class MarkdownProcessor {
             codeSegments.push({
                 id,
                 content: code,
-                html: `<code class="inline-code">${this.escapeHtml(code)}</code>`
+                html: `<code class="inline-code">${code}</code>`
             });
             return id;
         });
@@ -420,7 +425,7 @@ export class MarkdownProcessor {
         
         // 7. Restore inline code
         codeSegments.forEach(segment => {
-            processedText = processedText.replace(segment.id, segment.html);
+            processedText = processedText.replace(segment.id, () => segment.html);
         });
         
         return processedText;
@@ -630,6 +635,25 @@ export class MarkdownProcessor {
     generateCodeHTML(block) {
         // This will be handled by the existing code block system
         return null; // Signal to use existing code block rendering
+    }
+
+    /**
+     * Escape raw HTML in markdown SOURCE text, before any markdown pattern
+     * substitution runs.
+     *
+     * Deliberately does NOT escape '>': blockquote detection in
+     * parseBlockElements matches /^>\s*(.+)$/ on this string, and a literal '>'
+     * cannot open a tag once '<' is escaped. Deliberately does NOT escape "'"
+     * either: every attribute emitted by this class is wrapped in double quotes
+     * (which ARE escaped), and leaving "'" alone avoids injecting '$&' sequences
+     * into text that later passes through String.prototype.replace.
+     */
+    escapeMarkdownSource(text) {
+        if (!text || typeof text !== 'string') return text;
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/"/g, '&quot;');
     }
 
     /**

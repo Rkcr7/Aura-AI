@@ -30,7 +30,12 @@ export class WebSocketHandler {
     connect() {
         return new Promise((resolve, reject) => {
             this.is_intentionally_closing = false;
-            let url = "ws://127.0.0.1:8002/ws";
+            // Derive the host from the page origin. main.py picks a free port at
+            // startup and falls back off 8002 when it is busy, so a hardcoded port
+            // would break the socket exactly when the fallback kicks in.
+            const host = window.location.host || '127.0.0.1:8002';
+            const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            let url = `${scheme}//${host}/ws`;
             if (this.session_id) {
                 url += `?session_id=${this.session_id}`;
             }

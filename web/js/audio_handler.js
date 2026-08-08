@@ -5,6 +5,9 @@
 import { devLog, devError } from './config.js';
 import muteManager from './mute-manager.js';
 
+// Must match sample_rate in the Deepgram LiveOptions in services/stt_service.py.
+const TARGET_SAMPLE_RATE = 48000;
+
 let audioContext = null;
 let micStream = null;
 let systemStream = null;
@@ -62,8 +65,24 @@ export async function startAudioProcessing(micId, onAudioData) {
         }
 
         // 2. Setup AudioContext and Worklet
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Pin the rate so it matches what Deepgram is told to expect. Left to
+        // itself the context adopts the hardware rate, and a 44.1kHz device
+        // then streams audio that Deepgram decodes as 48kHz (~9% fast), which
+        // degrades transcription in a way that looks like a Deepgram fault
+        // rather than a configuration mismatch.
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        try {
+            audioContext = new AudioCtx({ sampleRate: TARGET_SAMPLE_RATE });
+        } catch (rateErr) {
+            // The spec requires 8000-96000 to be supported, so this is close to
+            // unreachable; fall back rather than failing the whole session.
+            console.warn('⚠️ Could not pin AudioContext sample rate:', rateErr);
+            audioContext = new AudioCtx();
+        }
         console.log(`🎵 AudioContext: ${audioContext.sampleRate}Hz`); // Keep this as it's important for debugging
+        if (audioContext.sampleRate !== TARGET_SAMPLE_RATE) {
+            console.warn(`⚠️ AudioContext is ${audioContext.sampleRate}Hz but Deepgram expects ${TARGET_SAMPLE_RATE}Hz - transcription accuracy may suffer`);
+        }
         await audioContext.audioWorklet.addModule('/static/js/audio_processor.js');
         
         // 3. Create a single mixed processor for better diarization

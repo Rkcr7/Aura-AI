@@ -191,7 +191,7 @@ class DeepgramManager:
             smart_format=True,
             encoding="linear16",
             channels=1,
-            sample_rate=48000,  # Ensure this matches your audio source
+            sample_rate=48000,  # Pinned client-side by TARGET_SAMPLE_RATE in web/js/audio_handler.js
             diarize=False,
             punctuate=True,
             # Critical speech detection parameters

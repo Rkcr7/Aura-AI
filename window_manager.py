@@ -14,13 +14,42 @@ import platform
 from typing import Optional
 from threading import Thread
 from pynput import keyboard
+from dotenv import dotenv_values
 
 # --- Scroll Configuration ---
 # Configurable via .env — controls Alt+Up/Down scroll behaviour
 # SCROLL_SPEED_PX: pixels per scroll tick (higher = faster). Default: 200
 # SCROLL_INTERVAL_MS: milliseconds between ticks while key is held. Default: 50
-SCROLL_AMOUNT_PX = int(os.environ.get("SCROLL_SPEED_PX", "200"))
-SCROLL_INTERVAL_MS = int(os.environ.get("SCROLL_INTERVAL_MS", "50"))
+# SCREEN_SHARE_SCAN_INTERVAL_S: seconds between screen-share indicator sweeps.
+#
+# Read the .env file directly rather than relying on os.environ: nothing in the
+# app calls load_dotenv(), and neither pydantic-settings nor dotenv_values
+# exports to the process environment, so these keys never reached os.environ.
+# Same file and relative path as core/config.py. Precedence is unchanged:
+# real environment variable > .env file > built-in default.
+_ENV_FILE_VALUES = dotenv_values(".env")
+
+
+def _env_setting(name: str, default, minimum, cast=int):
+    """Resolve a numeric setting, falling back to the default when missing or malformed.
+
+    Never raises: this module is imported from main.py before any UI exists, so a
+    typo in .env must not take the whole app down.
+    """
+    raw = os.environ.get(name) or _ENV_FILE_VALUES.get(name)
+    if not raw:
+        return default
+    try:
+        value = cast(str(raw).strip())
+    except (TypeError, ValueError):
+        print(f"⚠️ Invalid {name}={raw!r} in .env, using default {default}")
+        return default
+    return value if value >= minimum else minimum
+
+
+SCROLL_AMOUNT_PX = _env_setting("SCROLL_SPEED_PX", 200, 1)
+SCROLL_INTERVAL_MS = _env_setting("SCROLL_INTERVAL_MS", 50, 10)
+SCREEN_SHARE_SCAN_INTERVAL_S = _env_setting("SCREEN_SHARE_SCAN_INTERVAL_S", 1.0, 0.2, float)
 
 # --- Win32 API Constants ---
 # These flags are used with the SetWindowDisplayAffinity function.
@@ -167,55 +196,55 @@ SCREEN_SHARE_INDICATORS = [
 # alone is not enough: several of these are generic shells, so the title must
 # also carry one of the verification keywords below.
 SCREEN_SHARE_CLASSES = [
-    # Browser notifications
-    "Chrome_WidgetWin_1",  # Chrome screen share notification
-    "MozillaDialogClass",  # Firefox screen share notification
-    "EdgeWebView2",        # Edge screen share notification
-    "OperaWindowClass",    # Opera browser
-    "BraveWindowClass",    # Brave browser
-    
-    # Windows system notifications
-    "NotificationPresenterHost",  # Windows notification
-    "Windows.UI.Core.CoreWindow",  # Windows 10/11 notifications
-    "ApplicationFrameHost",        # Windows 10/11 app frame
-    "Shell_TrayWnd",              # System tray notifications
-    
-    # Video conferencing
-    "ZPContentViewWndClass",      # Zoom
-    "ZPFloatToolbarClass",        # Zoom toolbar
-    "TeamsWebView",               # Microsoft Teams
-    "SkypeWindowClass",           # Skype
-    "DiscordWindowClass",         # Discord
-    "SlackWindowClass",           # Slack
-    
-    # Screen recording software
-    "Qt5QWindowIcon",             # OBS Studio
-    "OBSWindowClass",             # OBS
-    "CamtasiaStudioWindowClass",  # Camtasia
-    "BandicamWindowClass",        # Bandicam
-    "XSplitWindowClass",          # XSplit
-    "StreamlabsWindowClass",      # Streamlabs
-    "FrapsWindowClass",           # Fraps
-    "ActionWindowClass",          # Mirillis Action!
-    
-    # Remote desktop tools
-    "TeamViewer_DesktopWindowClass",  # TeamViewer
-    "AnyDeskWindowClass",             # AnyDesk
-    "VNCWindowClass",                 # VNC viewers
-    "LogMeInWindowClass",             # LogMeIn
-    "SplashtopWindowClass",           # Splashtop
-    "ParsecWindowClass",              # Parsec
-    
-    # System recording indicators
-    "GameBarDisplayCaptureIndicator", # Xbox Game Bar
-    "NvidiaGeForceExperience",        # Nvidia ShadowPlay
-    "AMDReliveWindowClass",           # AMD ReLive
-    
-    # Generic Windows classes
-    "NotifyIconOverflowWindow",       # System tray overflow
-    "ToolbarWindow32",                # Toolbar notifications
-    "Static",                         # Static text windows
-    "Button"                          # Button controls
+    # Browser notifications
+    "Chrome_WidgetWin_1",  # Chrome screen share notification
+    "MozillaDialogClass",  # Firefox screen share notification
+    "EdgeWebView2",        # Edge screen share notification
+    "OperaWindowClass",    # Opera browser
+    "BraveWindowClass",    # Brave browser
+    
+    # Windows system notifications
+    "NotificationPresenterHost",  # Windows notification
+    "Windows.UI.Core.CoreWindow",  # Windows 10/11 notifications
+    "ApplicationFrameHost",        # Windows 10/11 app frame
+    "Shell_TrayWnd",              # System tray notifications
+    
+    # Video conferencing
+    "ZPContentViewWndClass",      # Zoom
+    "ZPFloatToolbarClass",        # Zoom toolbar
+    "TeamsWebView",               # Microsoft Teams
+    "SkypeWindowClass",           # Skype
+    "DiscordWindowClass",         # Discord
+    "SlackWindowClass",           # Slack
+    
+    # Screen recording software
+    "Qt5QWindowIcon",             # OBS Studio
+    "OBSWindowClass",             # OBS
+    "CamtasiaStudioWindowClass",  # Camtasia
+    "BandicamWindowClass",        # Bandicam
+    "XSplitWindowClass",          # XSplit
+    "StreamlabsWindowClass",      # Streamlabs
+    "FrapsWindowClass",           # Fraps
+    "ActionWindowClass",          # Mirillis Action!
+    
+    # Remote desktop tools
+    "TeamViewer_DesktopWindowClass",  # TeamViewer
+    "AnyDeskWindowClass",             # AnyDesk
+    "VNCWindowClass",                 # VNC viewers
+    "LogMeInWindowClass",             # LogMeIn
+    "SplashtopWindowClass",           # Splashtop
+    "ParsecWindowClass",              # Parsec
+    
+    # System recording indicators
+    "GameBarDisplayCaptureIndicator", # Xbox Game Bar
+    "NvidiaGeForceExperience",        # Nvidia ShadowPlay
+    "AMDReliveWindowClass",           # AMD ReLive
+    
+    # Generic Windows classes
+    "NotifyIconOverflowWindow",       # System tray overflow
+    "ToolbarWindow32",                # Toolbar notifications
+    "Static",                         # Static text windows
+    "Button"                          # Button controls
 ]
 
 # A class match only counts as an indicator when the title contains one of these.
@@ -566,7 +595,7 @@ class WindowManager:
             while self.screen_share_monitor_active:
                 try:
                     self.hide_all_screen_share_indicators()
-                    time.sleep(1.0)  # Check every second
+                    time.sleep(SCREEN_SHARE_SCAN_INTERVAL_S)  # Configurable via .env
                 except Exception as e:
                     print(f"❌ Error in screen share monitor: {e}")
                     time.sleep(2.0)  # Wait longer on error

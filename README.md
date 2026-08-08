@@ -499,8 +499,8 @@ Cerebras is the **fastest inference provider on the planet**. Responses come bac
 | **Sign up** | [cloud.cerebras.ai](https://cloud.cerebras.ai/) |
 | **Free tier** | Free API access — **no credit card required** |
 | **Best for** | Lightning-fast text responses (use as primary model) |
-| **Top models** | `gpt-oss-120b`, `llama-3.3-70b`, `qwen-3-32b` |
-| **Note** | No vision support — pair with Gemini or Groq for screenshots |
+| **Top models** | `gpt-oss-120b` (fastest, default), `gemma-4-31b` |
+| **Vision models** | `gemma-4-31b` — Cerebras now supports image input, and at ~1850 tok/s it is the fastest vision path available |
 
 ### 🚀 Groq (Recommended — Fast Text + Vision)
 
@@ -511,7 +511,8 @@ Groq provides **extremely fast inference** with both text and vision model suppo
 | **Sign up** | [console.groq.com](https://console.groq.com/) |
 | **Free tier** | Generous rate limits — **no credit card required** |
 | **Best for** | Fast text + Vision AI (Llama 4 Scout/Maverick) |
-| **Vision models** | `llama-4-scout`, `llama-4-maverick` |
+| **Top models** | `openai/gpt-oss-120b`, `openai/gpt-oss-20b` (fastest) |
+| **Vision models** | `qwen/qwen3.6-27b` — **paid tier only**, Groq retired its free vision models |
 
 ### 🔮 Gemini (Recommended — Best Vision AI)
 
@@ -522,7 +523,7 @@ Google's Gemini models deliver **excellent Vision AI accuracy**—best for analy
 | **Sign up** | [aistudio.google.com](https://aistudio.google.com/) |
 | **Free tier** | 15 requests/minute — **no credit card required** |
 | **Best for** | Vision AI (screenshot analysis) with top-tier accuracy |
-| **Vision models** | `gemini-2.0-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview` |
+| **Vision models** | `gemini-3.6-flash` (most accurate), `gemini-3.5-flash-lite` (fastest), `gemini-3.5-flash` |
 
 ### 🌐 OpenRouter (Optional — Multi-Provider Gateway)
 
@@ -581,8 +582,7 @@ GENERATE_FULL_ANSWERS=true                # Full answers vs. brief hints
 PERSONALIZE_ANSWERS=true                  # Tailor to your resume/JD
 
 # ─── Stealth / Proctoring ───
-ENABLE_SYSTEM_TRAY=false
-START_IN_STEALTH_MODE=true
+SCREEN_SHARE_SCAN_INTERVAL_S=1.0          # Seconds between indicator sweeps
 
 # ─── Scroll Speed (Alt+Up/Down) ───
 SCROLL_SPEED_PX=200                       # Pixels per tick
@@ -607,10 +607,15 @@ Created from `ai_providers.example.json`. **Not committed to git** — your keys
 
 | Provider | Text Models | Vision Models | Speed |
 |----------|------------|---------------|-------|
-| **Cerebras** | GPT-OSS 120B, Llama 3.3 70B, Qwen 3 32B | ❌ | ⚡⚡⚡ Fastest |
-| **Groq** | GPT-OSS 120B, Llama 3.3 70B, Llama 4 Scout | Llama 4 Scout/Maverick | ⚡⚡ Very fast |
-| **Gemini** | Gemini 2.0/2.5/3 Flash | All Gemini models | ⚡ Fast |
-| **OpenRouter** | Route to any provider | Via routing | Varies |
+| **Cerebras** | GPT-OSS 120B, Gemma 4 31B | Gemma 4 31B | ⚡⚡⚡ Fastest (~3000 tok/s) |
+| **Groq** | GPT-OSS 120B, GPT-OSS 20B | Qwen 3.6 27B (paid tier) | ⚡⚡ Very fast (~500-1000 tok/s) |
+| **Gemini** | Gemini 3.1/3.5/3.6 Flash | All Gemini models | ⚡ Fast, best accuracy |
+| **OpenRouter** | Routed to Cerebras/Groq | Gemma 4 31B via Cerebras | Varies |
+
+> **Choosing a vision model:** `gemma-4-31b` on Cerebras is the default because
+> speed matters most under exam pressure. If a screenshot is dense or ambiguous
+> and you can spare a second, switch to `gemini-3.6-flash` with `Alt+T` for the
+> most accurate reading.
 
 #### Provider Schema
 

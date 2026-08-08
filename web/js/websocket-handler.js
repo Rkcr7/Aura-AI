@@ -290,9 +290,26 @@ export class WebSocketHandler {
 
     sendAudioChunk(chunk, is_muted) {
         this.sendMessage('audio_chunk', {
-            audio: Array.from(new Uint8Array(chunk)),
+            audio_b64: this.bytesToBase64(chunk),
             is_muted: is_muted
         });
+    }
+
+    /**
+     * Base64-encode a PCM buffer for transport.
+     *
+     * Sending the raw bytes as a JSON array of integers cost roughly 4 bytes of
+     * text per byte of audio; base64 costs 1.33. Encoded in slices because
+     * String.fromCharCode.apply exceeds the argument limit on large buffers.
+     */
+    bytesToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        const SLICE = 0x8000;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += SLICE) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + SLICE));
+        }
+        return btoa(binary);
     }
 
     startInterview() {

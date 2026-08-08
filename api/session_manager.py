@@ -1,5 +1,6 @@
 import uuid
 import asyncio
+import base64
 import time
 from typing import Dict, Optional
 from fastapi import WebSocket
@@ -84,7 +85,16 @@ class InterviewSession:
         """Handles incoming audio chunks."""
         self._touch()
         if self.stt_manager and not self.state.get("is_universally_muted", False):
-            audio_data = bytes(payload.get('audio', []))
+            encoded = payload.get('audio_b64')
+            if encoded:
+                try:
+                    audio_data = base64.b64decode(encoded)
+                except (ValueError, TypeError) as decode_err:
+                    print(f"⚠️ Discarding malformed audio chunk: {decode_err}")
+                    return
+            else:
+                # Legacy shape: audio as a JSON array of byte values.
+                audio_data = bytes(payload.get('audio', []))
             self.state["is_muted"] = payload.get('is_muted', False)
             if audio_data:
                 await self.stt_manager.send_audio(audio_data)

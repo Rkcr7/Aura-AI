@@ -36,23 +36,24 @@
     border-left: 2px solid rgba(255, 255, 255, 0.2);
     padding-left: 0.75rem;
     margin-left: -0.75rem;
-    opacity: 0.9;
 }
 
 .markdown-h4 {
     font-size: clamp(1rem, 2.5vw, 1.2rem);
     font-weight: 600;
-    opacity: 0.85;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-size: 0.95rem;
 }
 
+/* Headings are the scan anchors used to find the right section in a
+   sub-second glance, so the old 0.9 / 0.85 / 0.8 ladder made the most
+   important landmarks the hardest to see. Hierarchy is carried by size,
+   weight and letter-spacing instead, none of which decay under transparency. */
 .markdown-h5,
 .markdown-h6 {
     font-size: clamp(0.9rem, 2vw, 1.1rem);
     font-weight: 600;
-    opacity: 0.8;
 }
 
 /* ==============================================
@@ -169,22 +170,26 @@
    INLINE FORMATTING - Professional Text Styling
    ============================================== */
 
+/* Emphasis must never be dimmer than the body copy it emphasises. Body text
+   is #ffffff; holding bold and italic at full alpha keeps the weight and slant
+   doing the work, which survives the window's 40-70% opacity intact. */
 .markdown-bold {
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.95);
+    color: #ffffff;
     letter-spacing: -0.01em;
 }
 
 .markdown-italic {
     font-style: italic;
-    color: rgba(255, 255, 255, 0.9);
+    color: #ffffff;
     font-weight: 400;
 }
 
+/* Dimmed once, not twice: opacity 0.6 and a 0.5 alpha colour multiplied to an
+   effective 0.30, which is unreadable once the window is made translucent. */
 .markdown-strikethrough {
     text-decoration: line-through;
-    opacity: 0.6;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .inline-code {

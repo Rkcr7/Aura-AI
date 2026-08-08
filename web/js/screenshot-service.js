@@ -471,12 +471,19 @@ class ScreenshotService {
             item.className = 'screenshot-item';
             item.innerHTML = `
                 <img src="${screenshot.dataUrl}" alt="Screenshot" class="screenshot-image">
-                <button class="screenshot-remove" onclick="screenshotService.removeFromQueue(${screenshot.id})">×</button>
+                <button class="screenshot-remove" type="button" title="Remove screenshot">×</button>
                 <div class="screenshot-info">
                     ${new Date(screenshot.timestamp).toLocaleTimeString()}
                     <br>${this.formatFileSize(screenshot.size)}
                 </div>
             `;
+            // Bind in JS rather than via an onclick attribute: keeps the numeric
+            // id (removeFromQueue compares with !==, so a string would silently
+            // never match) and drops the hidden dependency on a global.
+            const removeBtn = item.querySelector('.screenshot-remove');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => this.removeFromQueue(screenshot.id));
+            }
             queueGrid.appendChild(item);
         });
     }

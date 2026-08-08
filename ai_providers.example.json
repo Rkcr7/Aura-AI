@@ -1,33 +1,5 @@
 [
     {
-        "name": "Groq",
-        "baseURL": "https://api.groq.com/openai/v1",
-        "apiKey": "YOUR_GROQ_API_KEY_HERE",
-        "apiKeys": [
-            "YOUR_GROQ_API_KEY_1",
-            "YOUR_GROQ_API_KEY_2"
-        ],
-        "models": [
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "openai/gpt-oss-120b",
-            "openai/gpt-oss-20b",
-            "moonshotai/kimi-k2-instruct",
-            "qwen/qwen3-32b",
-            "meta-llama/llama-4-scout-17b-16e-instruct",
-            "meta-llama/llama-4-maverick-17b-128e-instruct"
-        ],
-        "visionModels": [
-            "meta-llama/llama-4-scout-17b-16e-instruct",
-            "meta-llama/llama-4-maverick-17b-128e-instruct"
-        ],
-        "supportsVision": true,
-        "defaultSecondary": true,
-        "defaultVisionSecondary": true,
-        "defaultModel": "openai/gpt-oss-120b",
-        "defaultVisionModel": "meta-llama/llama-4-maverick-17b-128e-instruct"
-    },
-    {
         "name": "Cerebras",
         "baseURL": "https://api.cerebras.ai/v1",
         "apiKey": "YOUR_CEREBRAS_API_KEY_HERE",
@@ -36,17 +8,59 @@
             "YOUR_CEREBRAS_API_KEY_2"
         ],
         "models": [
-            "llama-3.3-70b",
-            "llama3.1-8b",
-            "qwen-3-32b",
-            "gpt-oss-120b",
-            "qwen-3-235b-a22b-instruct-2507",
-            "zai-glm-4.7"
+            {
+                "modelName": "gpt-oss-120b",
+                "description": "GPT-OSS 120B - fastest text (~3000 tok/s), recommended default"
+            },
+            {
+                "modelName": "gemma-4-31b",
+                "description": "Gemma 4 31B - fast text and vision (~1850 tok/s)"
+            }
         ],
-        "visionModels": [],
-        "supportsVision": false,
+        "visionModels": [
+            {
+                "modelName": "gemma-4-31b",
+                "description": "Gemma 4 31B - fastest vision (~1850 tok/s), best for timed questions"
+            }
+        ],
+        "supportsVision": true,
         "defaultPrimary": true,
-        "defaultModel": "gpt-oss-120b"
+        "defaultVisionPrimary": true,
+        "defaultModel": "gpt-oss-120b",
+        "defaultVisionModel": "gemma-4-31b"
+    },
+    {
+        "name": "Groq",
+        "baseURL": "https://api.groq.com/openai/v1",
+        "apiKey": "YOUR_GROQ_API_KEY_HERE",
+        "apiKeys": [
+            "YOUR_GROQ_API_KEY_1",
+            "YOUR_GROQ_API_KEY_2"
+        ],
+        "models": [
+            {
+                "modelName": "openai/gpt-oss-120b",
+                "description": "GPT-OSS 120B - same model as the Cerebras default, independent rate limit"
+            },
+            {
+                "modelName": "openai/gpt-oss-20b",
+                "description": "GPT-OSS 20B - fastest on Groq (~1000 tok/s), lighter answers"
+            },
+            {
+                "modelName": "qwen/qwen3.6-27b",
+                "description": "Qwen 3.6 27B - text and vision (PAID TIER, not free)"
+            }
+        ],
+        "visionModels": [
+            {
+                "modelName": "qwen/qwen3.6-27b",
+                "description": "Qwen 3.6 27B - Groq's only vision model (PAID TIER, not free)"
+            }
+        ],
+        "supportsVision": true,
+        "defaultSecondary": true,
+        "defaultModel": "openai/gpt-oss-120b",
+        "defaultVisionModel": "qwen/qwen3.6-27b"
     },
     {
         "name": "Gemini",
@@ -57,22 +71,53 @@
             "YOUR_GEMINI_API_KEY_2"
         ],
         "models": [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-2.5-flash-lite",
-            "gemini-3-flash-preview",
-            "gemini-3-pro-preview"
+            {
+                "modelName": "gemini-3.5-flash-lite",
+                "description": "Gemini 3.5 Flash Lite - fastest Gemini, minimal thinking delay"
+            },
+            {
+                "modelName": "gemini-3.6-flash",
+                "description": "Gemini 3.6 Flash - most accurate, slower (best for hard questions)"
+            },
+            {
+                "modelName": "gemini-3.5-flash",
+                "description": "Gemini 3.5 Flash - strong reasoning, moderate speed"
+            },
+            {
+                "modelName": "gemini-3.1-flash-lite",
+                "description": "Gemini 3.1 Flash Lite - low latency fallback"
+            },
+            {
+                "modelName": "gemini-2.5-flash-lite",
+                "description": "Gemini 2.5 Flash Lite - mature fallback"
+            }
         ],
         "visionModels": [
-            "gemini-2.0-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-3-flash-preview",
-            "gemini-3-pro-preview"
+            {
+                "modelName": "gemini-3.6-flash",
+                "description": "Gemini 3.6 Flash - most accurate vision, slower than Cerebras"
+            },
+            {
+                "modelName": "gemini-3.5-flash-lite",
+                "description": "Gemini 3.5 Flash Lite - fast vision, good accuracy"
+            },
+            {
+                "modelName": "gemini-3.5-flash",
+                "description": "Gemini 3.5 Flash - strong vision reasoning"
+            },
+            {
+                "modelName": "gemini-3.1-flash-lite",
+                "description": "Gemini 3.1 Flash Lite - low latency vision fallback"
+            },
+            {
+                "modelName": "gemini-2.5-flash-lite",
+                "description": "Gemini 2.5 Flash Lite - mature vision fallback"
+            }
         ],
         "supportsVision": true,
-        "defaultVisionPrimary": true,
-        "defaultModel": "gemini-3-flash-preview",
-        "defaultVisionModel": "gemini-3-flash-preview"
+        "defaultVisionSecondary": true,
+        "defaultModel": "gemini-3.5-flash-lite",
+        "defaultVisionModel": "gemini-3.6-flash"
     },
     {
         "name": "OpenRouter",
@@ -83,56 +128,45 @@
         ],
         "models": [
             {
-                "modelName": "qwen/qwen3-32b",
-                "description": "qwen/qwen3-32b (via Cerebras)",
+                "modelName": "openai/gpt-oss-120b",
+                "description": "GPT-OSS 120B (routed to Cerebras or Groq, fastest first)",
                 "requestParams": {
                     "provider": {
                         "only": [
-                            "Cerebras"
-                        ]
+                            "cerebras",
+                            "groq"
+                        ],
+                        "sort": "throughput"
                     }
                 }
             },
             {
-                "modelName": "meta-llama/llama-3.3-70b-instruct",
-                "description": "Llama 3.3 70B (via Cerebras)",
+                "modelName": "google/gemma-4-31b-it",
+                "description": "Gemma 4 31B (routed to Cerebras)",
                 "requestParams": {
                     "provider": {
                         "only": [
-                            "Cerebras"
+                            "cerebras"
                         ]
                     }
                 }
-            },
-            {
-                "modelName": "meta-llama/llama-4-maverick",
-                "description": "Llama 4 Maverick (via Groq)",
-                "requestParams": {
-                    "provider": {
-                        "only": [
-                            "Groq"
-                        ]
-                    }
-                }
-            },
-            "qwen/qwen3-32b",
-            "meta-llama/llama-4-maverick"
+            }
         ],
         "visionModels": [
             {
-                "modelName": "meta-llama/llama-4-maverick",
-                "description": "Llama 4 Maverick Vision (via Groq)",
+                "modelName": "google/gemma-4-31b-it",
+                "description": "Gemma 4 31B Vision (routed to Cerebras)",
                 "requestParams": {
                     "provider": {
                         "only": [
-                            "Groq"
+                            "cerebras"
                         ]
                     }
                 }
-            },
-            "meta-llama/llama-4-maverick"
+            }
         ],
         "supportsVision": true,
-        "defaultModel": "qwen/qwen3-32b"
+        "defaultModel": "openai/gpt-oss-120b",
+        "defaultVisionModel": "google/gemma-4-31b-it"
     }
 ]

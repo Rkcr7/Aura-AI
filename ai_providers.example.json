@@ -20,14 +20,15 @@
         "visionModels": [
             {
                 "modelName": "gemma-4-31b",
-                "description": "Gemma 4 31B - fastest vision (~1850 tok/s), best for timed questions"
+                "description": "Gemma 4 31B - FASTEST vision (~1850 tok/s), max 2 images per request"
             }
         ],
         "supportsVision": true,
         "defaultPrimary": true,
-        "defaultVisionPrimary": true,
         "defaultModel": "gpt-oss-120b",
-        "defaultVisionModel": "gemma-4-31b"
+        "defaultVisionModel": "gemma-4-31b",
+        "maxImages": 2,
+        "defaultVisionSecondary": true
     },
     {
         "name": "Groq",
@@ -54,13 +55,14 @@
         "visionModels": [
             {
                 "modelName": "qwen/qwen3.6-27b",
-                "description": "Qwen 3.6 27B - Groq's only vision model (PAID TIER, not free)"
+                "description": "Qwen 3.6 27B - Groq's only vision model, max 2 images (PAID TIER)"
             }
         ],
         "supportsVision": true,
         "defaultSecondary": true,
         "defaultModel": "openai/gpt-oss-120b",
-        "defaultVisionModel": "qwen/qwen3.6-27b"
+        "defaultVisionModel": "qwen/qwen3.6-27b",
+        "maxImages": 2
     },
     {
         "name": "Gemini",
@@ -73,11 +75,11 @@
         "models": [
             {
                 "modelName": "gemini-3.5-flash-lite",
-                "description": "Gemini 3.5 Flash Lite - fastest Gemini, minimal thinking delay"
+                "description": "Gemini 3.5 Flash Lite - balanced speed and quality"
             },
             {
                 "modelName": "gemini-3.6-flash",
-                "description": "Gemini 3.6 Flash - most accurate, slower (best for hard questions)"
+                "description": "Gemini 3.6 Flash - most accurate, slower"
             },
             {
                 "modelName": "gemini-3.5-flash",
@@ -94,12 +96,12 @@
         ],
         "visionModels": [
             {
-                "modelName": "gemini-3.6-flash",
-                "description": "Gemini 3.6 Flash - most accurate vision, slower than Cerebras"
+                "modelName": "gemini-3.5-flash-lite",
+                "description": "Gemini 3.5 Flash Lite - BALANCED, default (up to 4 images)"
             },
             {
-                "modelName": "gemini-3.5-flash-lite",
-                "description": "Gemini 3.5 Flash Lite - fast vision, good accuracy"
+                "modelName": "gemini-3.6-flash",
+                "description": "Gemini 3.6 Flash - MOST ACCURATE, slower (up to 4 images)"
             },
             {
                 "modelName": "gemini-3.5-flash",
@@ -115,9 +117,10 @@
             }
         ],
         "supportsVision": true,
-        "defaultVisionSecondary": true,
         "defaultModel": "gemini-3.5-flash-lite",
-        "defaultVisionModel": "gemini-3.6-flash"
+        "defaultVisionModel": "gemini-3.5-flash-lite",
+        "maxImages": 4,
+        "defaultVisionPrimary": true
     },
     {
         "name": "OpenRouter",
@@ -167,6 +170,7 @@
         ],
         "supportsVision": true,
         "defaultModel": "openai/gpt-oss-120b",
-        "defaultVisionModel": "google/gemma-4-31b-it"
+        "defaultVisionModel": "google/gemma-4-31b-it",
+        "maxImages": 2
     }
 ]

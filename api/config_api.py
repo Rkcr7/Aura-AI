@@ -66,6 +66,10 @@ async def get_ai_providers():
                 "models": p.get("models", []),
                 "visionModels": p.get("visionModels", []),
                 "supportsVision": p.get("supportsVision", False),
+                # Images this provider accepts in a single request. The
+                # screenshot queue caps itself to this so a batch is never
+                # assembled that the selected vision model will reject.
+                "maxImages": p.get("maxImages"),
                 "defaultPrimary": p.get("defaultPrimary", False),
                 "defaultSecondary": p.get("defaultSecondary", False),
                 "defaultVisionPrimary": p.get("defaultVisionPrimary", False),

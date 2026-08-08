@@ -7,10 +7,13 @@
 // small text being missed; lower it to shrink payloads further.
 const MAX_CAPTURE_EDGE_PX = 2560;
 
+// Screenshots queued when the provider does not declare its own limit.
+const DEFAULT_MAX_SCREENSHOTS = 4;
+
 class ScreenshotService {
     constructor() {
         this.screenshotQueue = [];
-        this.maxScreenshots = 4;
+        this.maxScreenshots = DEFAULT_MAX_SCREENSHOTS;
         this.isCapturing = false;
         this.visionConfig = null;
         this.programmingLanguages = [];
@@ -322,11 +325,33 @@ class ScreenshotService {
     }
     
     // Configuration methods
-    setVisionConfig(visionProvider, visionModel) {
+    /**
+     * @param {number} [maxImages] Images this vision model accepts in one
+     *   request. Providers differ: Cerebras gemma-4-31b rejects a third image
+     *   with HTTP 413, while Gemini handles four. Without this the queue would
+     *   happily fill to 4 and then fail the whole batch at Alt+P.
+     */
+    setVisionConfig(visionProvider, visionModel, maxImages) {
         this.visionConfig = {
             provider: visionProvider,
             model: visionModel
         };
+
+        const cap = Number(maxImages) > 0 ? Math.floor(Number(maxImages)) : DEFAULT_MAX_SCREENSHOTS;
+        if (cap !== this.maxScreenshots) {
+            this.maxScreenshots = cap;
+            console.log(`🔧 Screenshot queue cap set to ${cap} for ${visionProvider} ${visionModel}`);
+            // Drop anything already queued beyond the new cap so Alt+P cannot
+            // send a batch this model will reject.
+            if (this.screenshotQueue.length > cap) {
+                const dropped = this.screenshotQueue.length - cap;
+                this.screenshotQueue = this.screenshotQueue.slice(0, cap);
+                this.showNotification('📸 Queue Trimmed',
+                    `${visionModel} accepts ${cap} image${cap === 1 ? '' : 's'} per request - removed ${dropped}`, 'warning');
+            }
+            this.updateQueueUI();
+        }
+
         console.log('🔧 Vision config set:', this.visionConfig);
     }
     

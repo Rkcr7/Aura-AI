@@ -181,6 +181,17 @@ export class StateManager {
     }
 
     // Vision Mode Functions
+
+    /**
+     * Images the selected vision provider accepts in one request.
+     * Returns undefined when the provider does not declare a limit, which
+     * leaves the screenshot queue on its default cap.
+     */
+    _visionMaxImages(providerName) {
+        const provider = (this.appState.aiProviders || []).find(p => p.name === providerName);
+        return provider?.maxImages;
+    }
+
     toggleVisionMode() {
         console.log('🎮 toggleVisionMode called (could be from global hotkey)');
         
@@ -219,7 +230,7 @@ export class StateManager {
                 ? this.appState.selectedVisionProvider 
                 : this.appState.selectedSecondaryVisionProvider;
                 
-            screenshotService.setVisionConfig(currentProvider.name, currentProvider.model);
+            screenshotService.setVisionConfig(currentProvider.name, currentProvider.model, this._visionMaxImages(currentProvider.name));
             screenshotService.setProgrammingLanguages(this.appState.selectedLanguages);
             screenshotService.showVisionMode(true);
             
@@ -282,7 +293,7 @@ export class StateManager {
             ? this.appState.selectedSecondaryVisionProvider
             : this.appState.selectedVisionProvider;
 
-        screenshotService.setVisionConfig(currentProviderConfig.name, currentProviderConfig.model);
+        screenshotService.setVisionConfig(currentProviderConfig.name, currentProviderConfig.model, this._visionMaxImages(currentProviderConfig.name));
         screenshotService.updateQueueUI();
 
         const providerType = wasOnPrimary ? 'Secondary (2°)' : 'Primary (1°)';

@@ -118,7 +118,6 @@ class InterviewSession:
         try:
             print(f"🔍 Session {self.session_id}: Processing vision analysis request...")
             
-            prompt = payload.get('prompt', '')
             screenshots = payload.get('screenshots', [])
             vision_config = payload.get('visionConfig', {})
             languages = payload.get('languages', [])

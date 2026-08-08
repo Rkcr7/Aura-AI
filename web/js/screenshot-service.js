@@ -506,7 +506,6 @@ class ScreenshotService {
         }
         
         try {
-            const prompt = this.generateCodingPrompt();
             const screenshots = this.screenshotQueue.map(s => s.dataUrl);
             
             console.log('🔄 Processing comprehensive multi-screenshot analysis...');
@@ -514,7 +513,7 @@ class ScreenshotService {
             console.log('🧠 Generating two distinct solution approaches with full implementations');
             
             // Send to vision processing service
-            const result = await this.sendToVisionAI(prompt, screenshots);
+            const result = await this.sendToVisionAI(screenshots);
             
             if (result.success) {
                 // Note: Vision analysis display is handled by main.js WebSocket message handler
@@ -539,96 +538,12 @@ class ScreenshotService {
         }
     }
     
-    generateCodingPrompt() {
-        const languageContext = this.programmingLanguages.length > 0 
-            ? `Focus on solutions in: ${this.programmingLanguages.join(', ')}`
-            : 'Provide solutions in popular programming languages';
-            
-        return `You are an expert coding interview assistant. Analyze the provided screenshot(s) of coding problems and provide comprehensive help with CLEAR SEPARATION between problem understanding and solution approaches.
-
-**IMPORTANT**: Analyze ALL screenshots together as ONE COMPLETE problem.
-
-${languageContext}
-
-Please provide a structured analysis with clear sections:
-
----
-
-# 🎯 PROBLEM UNDERSTANDING & ANALYSIS
-
-## 📖 Complete Problem Statement
-- **What the problem is asking:** Clear restatement from all screenshots
-- **Input/Output format:** Complete specifications
-- **All constraints:** Every constraint mentioned
-- **Examples provided:** All test cases and examples
-
-## 🔍 Key Insights
-- **Core challenge:** Main algorithmic difficulty
-- **Edge cases:** Boundary conditions to consider
-- **Problem type:** What category of algorithm/data structure
-
----
-
-# 🚀 APPROACH 1: [NAME THE FIRST APPROACH]
-
-## 💡 Strategy Overview
-- **Algorithm choice:** What technique we're using
-- **Key insight:** Why this approach works
-- **Time/Space Complexity:** O(?) analysis
-
-## 💻 Complete Implementation
-\`\`\`${this.programmingLanguages[0] || 'java'}
-// APPROACH 1: [Brief description]
-// Complete, production-ready code with comments
-// Handle all edge cases properly
-\`\`\`
-
-## 🔍 Step-by-Step Walkthrough
-Detailed explanation of how this algorithm works with examples.
-
----
-
-# ⚡ APPROACH 2: [NAME THE ALTERNATIVE APPROACH]
-
-## 💡 Strategy Overview
-- **Different algorithm:** Alternative technique
-- **Key insight:** Different way of thinking
-- **Time/Space Complexity:** O(?) - compare with Approach 1
-
-## 💻 Complete Implementation
-\`\`\`${this.programmingLanguages[0] || 'java'}
-// APPROACH 2: [Brief description]  
-// Alternative implementation showing different thinking
-// Include comprehensive comments
-\`\`\`
-
-## 🔍 Step-by-Step Walkthrough
-Explanation of the alternative approach with examples.
-
----
-
-# ⚖️ APPROACH COMPARISON
-
-## 📊 Which Approach to Choose
-- **Approach 1 is better when:** Specific scenarios
-- **Approach 2 is better when:** Different scenarios
-- **Interview recommendation:** Which to present first
-
-## 🎤 Interview Strategy
-- **Presentation tips:** How to discuss both approaches
-- **Common follow-ups:** Expected interviewer questions
-- **Time management:** Implementation priority
-
-Focus on being educational and helping understand both the solutions and the underlying concepts with CLEAR SEPARATION between each approach.`;
-    }
-    
-    async sendToVisionAI(prompt, screenshots) {
+    async sendToVisionAI(screenshots) {
         try {
             console.log(`🔍 Sending ${screenshots.length} screenshots for comprehensive analysis`);
             console.log('📝 Enhanced prompt for multi-screenshot analysis');
             
             const payload = {
-                prompt: prompt,
                 screenshots: screenshots,
                 visionConfig: this.visionConfig,
                 languages: this.programmingLanguages

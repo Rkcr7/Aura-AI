@@ -1,23 +1,17 @@
-import webview
-import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-import asyncio
-import aiofiles
-import window_manager  # Our new module for capture protection
 import os
-import orjson
-import tempfile
-import time
-import signal
-import sys
-import socket
-import threading
 import shutil
+import signal
+import socket
+import sys
+import tempfile
+import threading
+import time
 from pathlib import Path
 
 # --- Auto-create .env from .env.example if missing ---
+# This must run BEFORE any first-party import: window_manager and core.config
+# both read .env at import time, so creating it afterwards meant a freshly
+# generated .env had no effect until the next launch.
 _env_path = Path(".env")
 _env_example_path = Path(".env.example")
 
@@ -27,6 +21,17 @@ if not _env_path.exists() and _env_example_path.exists():
 elif not _env_path.exists() and not _env_example_path.exists():
     print("⚠️ No .env or .env.example found. The app may fail to start without a .env file.")
 
+import asyncio
+
+import aiofiles
+import orjson
+import uvicorn
+import webview
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+import window_manager  # Our new module for capture protection
 from api import websocket, config_api
 from api.session_manager import session_manager
 from core.config import settings, print_config_debug

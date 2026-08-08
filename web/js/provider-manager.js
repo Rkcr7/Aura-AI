@@ -217,9 +217,22 @@ export class ProviderManager {
         selectElement.disabled = true;
 
         if (models.length > 0) {
+            // A provider may list the same model twice, once as a routed object
+            // and once as a bare string (OpenRouter does). The backend resolves
+            // a name to the first entry that matches, so a second option with
+            // the same value is unreachable: it silently applies the first
+            // entry's routing. Keep the first occurrence so the dropdown agrees
+            // with what the backend will actually use.
+            const seen = new Set();
             models.forEach(model => {
+                const modelValue = typeof model === 'string' ? model : model?.modelName;
+                if (modelValue) {
+                    if (seen.has(modelValue)) return;
+                    seen.add(modelValue);
+                }
+
                 const option = document.createElement('option');
-                
+
                 // Handle both string models and object models with routing
                 if (typeof model === 'string') {
                     // Simple string model - use as both value and display text

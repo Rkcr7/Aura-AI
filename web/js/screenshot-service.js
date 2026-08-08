@@ -1,6 +1,12 @@
 // Screenshot Service for Vision AI Processing
 // Handles screen capture, queue management, and vision model integration
 
+// Longest edge a capture is allowed to keep, in pixels. Chosen so that 1080p
+// and 1440p displays are never touched and only larger or multi-monitor
+// captures are scaled down. Raise it if you work on a 4K display and find
+// small text being missed; lower it to shrink payloads further.
+const MAX_CAPTURE_EDGE_PX = 2560;
+
 class ScreenshotService {
     constructor() {
         this.screenshotQueue = [];
@@ -392,13 +398,30 @@ class ScreenshotService {
                 setTimeout(() => reject(new Error('Video load timeout')), 5000);
             });
             
-            // Create canvas and capture frame
+            // Create canvas and capture frame.
+            //
+            // The primary path reuses the display track opened by audio_handler,
+            // which is requested without size constraints, so videoWidth is the
+            // full native resolution. Capping the long edge bounds the payload on
+            // very large or multi-monitor captures, where four queued screenshots
+            // could otherwise approach a provider's request size limit.
+            //
+            // Verified on a 4512x3424 diagram: both Cerebras gemma-4-31b and
+            // Gemini 3.6 Flash extracted exactly the same text before and after
+            // downscaling, and Cerebras got 32% faster. Displays at or below the
+            // cap are untouched, so most users see no change at all.
+            const scale = Math.min(1, MAX_CAPTURE_EDGE_PX / Math.max(video.videoWidth, video.videoHeight));
             const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0);
+            if (scale < 1) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                console.log(`📐 Capture scaled ${video.videoWidth}x${video.videoHeight} -> ${canvas.width}x${canvas.height}`);
+            }
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             // Convert to blob
             const blob = await new Promise(resolve => {

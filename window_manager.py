@@ -163,6 +163,75 @@ SCREEN_SHARE_INDICATORS = [
     "Browser automation active"
 ]
 
+# Window classes that can host a sharing/recording indicator. A class match
+# alone is not enough: several of these are generic shells, so the title must
+# also carry one of the verification keywords below.
+SCREEN_SHARE_CLASSES = [
+    # Browser notifications
+    "Chrome_WidgetWin_1",  # Chrome screen share notification
+    "MozillaDialogClass",  # Firefox screen share notification
+    "EdgeWebView2",        # Edge screen share notification
+    "OperaWindowClass",    # Opera browser
+    "BraveWindowClass",    # Brave browser
+    
+    # Windows system notifications
+    "NotificationPresenterHost",  # Windows notification
+    "Windows.UI.Core.CoreWindow",  # Windows 10/11 notifications
+    "ApplicationFrameHost",        # Windows 10/11 app frame
+    "Shell_TrayWnd",              # System tray notifications
+    
+    # Video conferencing
+    "ZPContentViewWndClass",      # Zoom
+    "ZPFloatToolbarClass",        # Zoom toolbar
+    "TeamsWebView",               # Microsoft Teams
+    "SkypeWindowClass",           # Skype
+    "DiscordWindowClass",         # Discord
+    "SlackWindowClass",           # Slack
+    
+    # Screen recording software
+    "Qt5QWindowIcon",             # OBS Studio
+    "OBSWindowClass",             # OBS
+    "CamtasiaStudioWindowClass",  # Camtasia
+    "BandicamWindowClass",        # Bandicam
+    "XSplitWindowClass",          # XSplit
+    "StreamlabsWindowClass",      # Streamlabs
+    "FrapsWindowClass",           # Fraps
+    "ActionWindowClass",          # Mirillis Action!
+    
+    # Remote desktop tools
+    "TeamViewer_DesktopWindowClass",  # TeamViewer
+    "AnyDeskWindowClass",             # AnyDesk
+    "VNCWindowClass",                 # VNC viewers
+    "LogMeInWindowClass",             # LogMeIn
+    "SplashtopWindowClass",           # Splashtop
+    "ParsecWindowClass",              # Parsec
+    
+    # System recording indicators
+    "GameBarDisplayCaptureIndicator", # Xbox Game Bar
+    "NvidiaGeForceExperience",        # Nvidia ShadowPlay
+    "AMDReliveWindowClass",           # AMD ReLive
+    
+    # Generic Windows classes
+    "NotifyIconOverflowWindow",       # System tray overflow
+    "ToolbarWindow32",                # Toolbar notifications
+    "Static",                         # Static text windows
+    "Button"                          # Button controls
+]
+
+# A class match only counts as an indicator when the title contains one of these.
+SCREEN_SHARE_VERIFICATION_KEYWORDS = [
+    "sharing", "screen", "record", "capture", "desktop",
+    "monitor", "display", "streaming", "broadcast", "meeting",
+    "presentation", "remote", "control", "access"
+]
+
+# Precomputed lowercase needles. find_screen_share_indicators() matches these
+# against every top-level window on every scan tick, so lowercasing them once at
+# import removes ~110 redundant .lower() calls per window per tick.
+_INDICATORS_LOWER = tuple(text.lower() for text in SCREEN_SHARE_INDICATORS)
+_SHARE_CLASSES_LOWER = tuple(name.lower() for name in SCREEN_SHARE_CLASSES)
+_VERIFICATION_KEYWORDS_LOWER = tuple(k.lower() for k in SCREEN_SHARE_VERIFICATION_KEYWORDS)
+
 class WindowManager:
     def __init__(self):
         self.hwnd: Optional[int] = None
@@ -387,74 +456,18 @@ class WindowManager:
                 
                 # Check title for screen sharing keywords
                 title_lower = title.lower()
-                for indicator_text in SCREEN_SHARE_INDICATORS:
-                    if indicator_text.lower() in title_lower:
+                for indicator_text in _INDICATORS_LOWER:
+                    if indicator_text in title_lower:
                         is_indicator = True
                         break
                 
                 # Check class name for known screen sharing/recording classes
                 if not is_indicator:
-                    screen_share_classes = [
-                        # Browser notifications
-                        "Chrome_WidgetWin_1",  # Chrome screen share notification
-                        "MozillaDialogClass",  # Firefox screen share notification
-                        "EdgeWebView2",        # Edge screen share notification
-                        "OperaWindowClass",    # Opera browser
-                        "BraveWindowClass",    # Brave browser
-                        
-                        # Windows system notifications
-                        "NotificationPresenterHost",  # Windows notification
-                        "Windows.UI.Core.CoreWindow",  # Windows 10/11 notifications
-                        "ApplicationFrameHost",        # Windows 10/11 app frame
-                        "Shell_TrayWnd",              # System tray notifications
-                        
-                        # Video conferencing
-                        "ZPContentViewWndClass",      # Zoom
-                        "ZPFloatToolbarClass",        # Zoom toolbar
-                        "TeamsWebView",               # Microsoft Teams
-                        "SkypeWindowClass",           # Skype
-                        "DiscordWindowClass",         # Discord
-                        "SlackWindowClass",           # Slack
-                        
-                        # Screen recording software
-                        "Qt5QWindowIcon",             # OBS Studio
-                        "OBSWindowClass",             # OBS
-                        "CamtasiaStudioWindowClass",  # Camtasia
-                        "BandicamWindowClass",        # Bandicam
-                        "XSplitWindowClass",          # XSplit
-                        "StreamlabsWindowClass",      # Streamlabs
-                        "FrapsWindowClass",           # Fraps
-                        "ActionWindowClass",          # Mirillis Action!
-                        
-                        # Remote desktop tools
-                        "TeamViewer_DesktopWindowClass",  # TeamViewer
-                        "AnyDeskWindowClass",             # AnyDesk
-                        "VNCWindowClass",                 # VNC viewers
-                        "LogMeInWindowClass",             # LogMeIn
-                        "SplashtopWindowClass",           # Splashtop
-                        "ParsecWindowClass",              # Parsec
-                        
-                        # System recording indicators
-                        "GameBarDisplayCaptureIndicator", # Xbox Game Bar
-                        "NvidiaGeForceExperience",        # Nvidia ShadowPlay
-                        "AMDReliveWindowClass",           # AMD ReLive
-                        
-                        # Generic Windows classes
-                        "NotifyIconOverflowWindow",       # System tray overflow
-                        "ToolbarWindow32",                # Toolbar notifications
-                        "Static",                         # Static text windows
-                        "Button"                          # Button controls
-                    ]
-                    
-                    for share_class in screen_share_classes:
-                        if share_class.lower() in class_name.lower():
+                    class_name_lower = class_name.lower()
+                    for share_class in _SHARE_CLASSES_LOWER:
+                        if share_class in class_name_lower:
                             # Additional verification for these classes
-                            verification_keywords = [
-                                "sharing", "screen", "record", "capture", "desktop", 
-                                "monitor", "display", "streaming", "broadcast", "meeting",
-                                "presentation", "remote", "control", "access"
-                            ]
-                            if any(keyword in title_lower for keyword in verification_keywords):
+                            if any(keyword in title_lower for keyword in _VERIFICATION_KEYWORDS_LOWER):
                                 is_indicator = True
                                 break
                 

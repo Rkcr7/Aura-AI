@@ -23,6 +23,30 @@
 
 ---
 
+## 🆕 What's New in v1.1.0
+
+**Model catalogue refresh — this is the important one.** Providers retired a lot
+of models over the last six months, and the old config pointed at several that
+no longer exist. If you set Aura up before now, **re-copy
+`ai_providers.example.json`** or your first request may fail.
+
+| Change | Detail |
+|--------|--------|
+| ⚡ **Cerebras vision** | Cerebras now supports image input via `gemma-4-31b` (~1850 tok/s). It is the new default vision model — the fastest screenshot path Aura has ever had |
+| 🧹 **13 dead models removed** | Both Groq vision models, 4 Cerebras text models and 3 Gemini models had been shut down |
+| 🎯 **Speed-first defaults** | Cerebras `gpt-oss-120b` for text, Cerebras `gemma-4-31b` for vision, with Gemini 3.6 Flash as the accuracy option on `Alt+T` |
+| 🔑 **Setup that works first try** | Placeholder API keys in `apiKeys` no longer shadow a real `apiKey` — the most common first-run failure |
+| 🔌 **Port fallback fixed** | The WebSocket now follows the port the app actually binds, so Aura still starts when 8002 is taken |
+| 🛡️ **Capture protection is verified** | Startup now reads the display affinity back instead of assuming it applied, so a failure is reported rather than silent |
+| 🎤 **Audio pipeline** | Sample rate pinned to match Deepgram (fixes accuracy on 44.1kHz devices); ~70% less bandwidth and 8× fewer messages |
+| 👁️ **Readability at low opacity** | Headings and bold no longer render dimmer than body text — they were hardest to read exactly when you need them |
+| ♿ **Reduced motion honoured** | Looping animations stop when the OS asks. On a stealth overlay, movement is what draws the eye |
+
+Plus a markdown rendering hardening pass and the settings in `.env` now actually
+do what the docs say. Full detail in the commit history.
+
+---
+
 ## ✨ What is Aura?
 
 Aura isn't just another interview prep tool. It's your secret weapon for **any challenge**—from aptitude tests to quantitative brain-twisters, behavioral showdowns to certification exams. Aura is a **revolutionary AI assistant** that operates in real-time, providing candidates with the critical insights they need to excel in high-stakes situations—all without ever tripping tab-switching warnings, thanks to its stealthy, seamless design.

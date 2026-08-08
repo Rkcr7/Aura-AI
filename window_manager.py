@@ -55,6 +55,23 @@ _user32.ShowWindow.restype = wintypes.BOOL
 _user32.IsWindowVisible.argtypes = (wintypes.HWND,)
 _user32.IsWindowVisible.restype = wintypes.BOOL
 
+# Define the function signature for GetWindowDisplayAffinity
+#   BOOL GetWindowDisplayAffinity(HWND hWnd, DWORD *pdwAffinity)
+# This is the read-back counterpart of SetWindowDisplayAffinity: it lets us
+# actually confirm the protection took effect instead of assuming it did.
+# The lookup is guarded so an older/unusual Windows build that does not export
+# the symbol keeps working with the previous best-effort check.
+try:
+    _user32.GetWindowDisplayAffinity.restype = wintypes.BOOL
+    _user32.GetWindowDisplayAffinity.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+    _HAS_GET_DISPLAY_AFFINITY = True
+except AttributeError:
+    _HAS_GET_DISPLAY_AFFINITY = False
+
+# IsWindow is used as the fallback verification check
+_user32.IsWindow.argtypes = (wintypes.HWND,)
+_user32.IsWindow.restype = wintypes.BOOL
+
 # Screen sharing indicator detection constants
 SCREEN_SHARE_INDICATORS = [
     # Generic Windows indicators
@@ -1324,19 +1341,40 @@ def apply_capture_protection(window):
         print("   🚨 WARNING: Window WILL be visible in screen recordings!")
         return False
 
-def verify_protection(hwnd):
-    """Verify that capture protection is actually applied"""
+def verify_protection(hwnd) -> Optional[bool]:
+    """Verify that capture protection is actually applied.
+
+    Returns True when the window's display affinity reads back as
+    WDA_EXCLUDEFROMCAPTURE, False when it reads back as something else, and
+    None when verification was not possible (API unavailable, call failed, or
+    an unexpected error). Diagnostic only - this never raises and the result
+    can safely be ignored.
+    """
     try:
         # Try to get current display affinity (this is a read-only check)
         print(f"🔬 Verifying protection on window {hex(hwnd)}...")
         
-        # Note: There's no direct way to read the current display affinity,
-        # but we can check if the window handle is still valid
+        # Read the affinity back so this is a real confirmation, not a guess.
+        if _HAS_GET_DISPLAY_AFFINITY:
+            affinity = wintypes.DWORD(0)
+            if _user32.GetWindowDisplayAffinity(hwnd, ctypes.byref(affinity)):
+                if affinity.value == WDA_EXCLUDEFROMCAPTURE:
+                    print(f"✅ CONFIRMED: display affinity is WDA_EXCLUDEFROMCAPTURE (0x{affinity.value:08X})")
+                    return True
+                print(f"❌ MISMATCH: display affinity is 0x{affinity.value:08X}, expected 0x{WDA_EXCLUDEFROMCAPTURE:08X}")
+                print("   🚨 WARNING: Window may still be visible in screen recordings!")
+                return False
+            print(f"⚠️ GetWindowDisplayAffinity failed (Error Code: {ctypes.GetLastError()}) - falling back to handle check")
+        else:
+            print("⚠️ GetWindowDisplayAffinity unavailable on this system - falling back to handle check")
+
+        # Fallback (previous behaviour): a valid handle is weak evidence only.
         is_window_valid = _user32.IsWindow(hwnd)
         if is_window_valid:
             print("✅ Window handle is valid - protection likely applied")
         else:
             print("❌ Window handle is invalid - protection may have failed")
+        return None
             
     except Exception as e:
         print(f"⚠️ Could not verify protection: {e}")

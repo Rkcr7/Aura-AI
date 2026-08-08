@@ -1206,3 +1206,27 @@ select:focus-visible {
     text-align: center;
     flex-shrink: 0;
 }
+/* ==========================================================================
+   Reduced motion
+   ==========================================================================
+   Aura renders as a translucent always-on-top overlay, so looping animation
+   is not just an accessibility concern: movement is the thing that draws a
+   viewer's eye to a window that is meant to go unnoticed. Seven animations
+   loop forever (recording dot, listening dot, typing carets, spinner,
+   resume-scroll pulse), and nothing honoured this query before.
+
+   Declared with !important and a universal selector so it also overrides the
+   <style> blocks that live-interview.js, preset-manager.js and
+   screenshot-service.js inject into <head> at runtime, which would otherwise
+   win on cascade order. */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

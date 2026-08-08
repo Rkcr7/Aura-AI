@@ -1024,8 +1024,15 @@ class LiveInterviewUI {
             return;
         }
         if (this.scrollState.aiResponseStartElement) {
+            // A behavior passed to scrollIntoView wins over the CSS
+            // scroll-behavior property, so the reduced-motion media query in
+            // main.css cannot suppress this one. Check it here instead. This
+            // fires on every AI response and animates the whole conversation
+            // pane, making it the largest single movement in the overlay.
+            const reduceMotion = window.matchMedia
+                && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             this.scrollState.aiResponseStartElement.scrollIntoView({
-                behavior: 'smooth',
+                behavior: reduceMotion ? 'auto' : 'smooth',
                 block: 'start'
             });
         }

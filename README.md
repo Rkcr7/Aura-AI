@@ -25,25 +25,18 @@
 
 ## 🆕 What's New in v1.1.0
 
-**Model catalogue refresh — this is the important one.** Providers retired a lot
-of models over the last six months, and the old config pointed at several that
-no longer exist. If you set Aura up before now, **re-copy
-`ai_providers.example.json`** or your first request may fail.
-
-| Change | Detail |
+| | |
 |--------|--------|
-| ⚡ **Cerebras vision** | Cerebras now supports image input via `gemma-4-31b` (~1850 tok/s). It is the new default vision model — the fastest screenshot path Aura has ever had |
-| 🧹 **13 dead models removed** | Both Groq vision models, 4 Cerebras text models and 3 Gemini models had been shut down |
-| 🎯 **Speed-first defaults** | Cerebras `gpt-oss-120b` for text, Cerebras `gemma-4-31b` for vision, with Gemini 3.6 Flash as the accuracy option on `Alt+T` |
-| 🔑 **Setup that works first try** | Placeholder API keys in `apiKeys` no longer shadow a real `apiKey` — the most common first-run failure |
-| 🔌 **Port fallback fixed** | The WebSocket now follows the port the app actually binds, so Aura still starts when 8002 is taken |
-| 🛡️ **Capture protection is verified** | Startup now reads the display affinity back instead of assuming it applied, so a failure is reported rather than silent |
-| 🎤 **Audio pipeline** | Sample rate pinned to match Deepgram (fixes accuracy on 44.1kHz devices); ~70% less bandwidth and 8× fewer messages |
-| 👁️ **Readability at low opacity** | Headings and bold no longer render dimmer than body text — they were hardest to read exactly when you need them |
-| ♿ **Reduced motion honoured** | Looping animations stop when the OS asks. On a stealth overlay, movement is what draws the eye |
+| ⚡ **Cerebras Vision** | Cerebras now does image input via **Gemma 4 31B** at ~1850 tok/s — the fastest screenshot-to-answer path Aura has ever had, and the new vision default |
+| 🚀 **Latest models** | Refreshed across every provider: GPT-OSS 120B, Gemma 4 31B, Gemini 3.6 / 3.5 Flash |
+| 🎯 **Tuned for speed** | Cerebras drives both text and vision by default. Need maximum accuracy on a dense screenshot? `Alt+T` swaps to Gemini 3.6 Flash |
+| 🏷️ **Labelled model picker** | Every model now shows its speed/accuracy tradeoff right in the dropdown, so you pick the right one under pressure |
+| 🎤 **Leaner audio pipeline** | ~70% less bandwidth and 8× fewer messages, with sample rate locked to Deepgram for cleaner transcription |
+| 👁️ **Sharper at low opacity** | Headings, bold text and code blocks are noticeably easier to read at 40% transparency |
+| ♿ **Respects reduced motion** | Animations settle when your OS asks for it — and a stiller overlay is a less noticeable one |
 
-Plus a markdown rendering hardening pass and the settings in `.env` now actually
-do what the docs say. Full detail in the commit history.
+> **Upgrading?** Re-copy `ai_providers.example.json` to pick up the new model
+> lineup — provider catalogues moved on since v1.0.0.
 
 ---
 

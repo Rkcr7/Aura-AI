@@ -80,10 +80,10 @@
                             <div class="ai-config-primary">
                                 <h4>Primary AI Model (Default)</h4>
                                 <div class="ai-config-group">
-                                    <select id="ai-provider-select" required>
+                                    <select id="ai-provider-select" aria-label="Primary AI provider" required>
                                         <option value="">Select AI Provider</option>
                                     </select>
-                                    <select id="ai-model-select" disabled required>
+                                    <select id="ai-model-select" aria-label="Primary AI model" disabled required>
                                         <option value="">Select Model</option>
                                     </select>
                                 </div>
@@ -94,10 +94,10 @@
                             <div class="ai-config-secondary">
                                 <h4>Secondary AI Model (Optional)</h4>
                                 <div class="ai-config-group">
-                                    <select id="ai-secondary-provider-select">
+                                    <select id="ai-secondary-provider-select" aria-label="Secondary AI provider">
                                         <option value="">Select Secondary Provider (Optional)</option>
                                     </select>
-                                    <select id="ai-secondary-model-select" disabled>
+                                    <select id="ai-secondary-model-select" aria-label="Secondary AI model" disabled>
                                         <option value="">Select Secondary Model</option>
                                     </select>
                                 </div>
@@ -122,10 +122,10 @@
                             <div class="vision-config-primary">
                                 <h4>Primary Vision Model (Default)</h4>
                                 <div class="ai-config-group">
-                                    <select id="vision-provider-select">
+                                    <select id="vision-provider-select" aria-label="Primary vision provider">
                                         <option value="">Select Vision Provider (Optional)</option>
                                     </select>
-                                    <select id="vision-model-select" disabled>
+                                    <select id="vision-model-select" aria-label="Primary vision model" disabled>
                                         <option value="">Select Vision Model</option>
                                     </select>
                                 </div>
@@ -136,10 +136,10 @@
                             <div class="vision-config-secondary">
                                 <h4>Secondary Vision Model (Optional)</h4>
                                 <div class="ai-config-group">
-                                    <select id="vision-secondary-provider-select">
+                                    <select id="vision-secondary-provider-select" aria-label="Secondary vision provider">
                                         <option value="">Select Secondary Vision Provider (Optional)</option>
                                     </select>
-                                    <select id="vision-secondary-model-select" disabled>
+                                    <select id="vision-secondary-model-select" aria-label="Secondary vision model" disabled>
                                         <option value="">Select Secondary Vision Model</option>
                                     </select>
                                 </div>
@@ -291,7 +291,7 @@
                 <div class="check-item" id="check-mic-permission"><span class="indicator">⚪</span> Microphone Permission
                 </div>
                 <div class="check-item" id="check-mic-selection"><span class="indicator">⚪</span> Microphone Selection
-                    <select id="mic-select" disabled></select>
+                    <select id="mic-select" aria-label="Microphone device" disabled></select>
                 </div>
                 <div class="check-item" id="check-backend"><span class="indicator">⚪</span> Backend Connection</div>
                 <div class="check-item" id="check-deepgram"><span class="indicator">⚪</span> Deepgram API</div>

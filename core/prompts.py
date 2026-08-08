@@ -6,8 +6,13 @@ from typing import Dict, List, Optional
 
 from services.context_manager import PersistentContextManager
 
-def build_unlimited_candidate_profile(persistent_context: dict) -> str:
-    """Build comprehensive candidate profile with UNLIMITED content."""
+def build_unlimited_candidate_profile(persistent_context: dict, include_personal_details: bool = True) -> str:
+    """Build comprehensive candidate profile with UNLIMITED content.
+
+    include_personal_details=False omits the resume and job-description blocks
+    (driven by PERSONALIZE_ANSWERS). Identity fields (name/company/role/focus)
+    are always kept.
+    """
     profile_parts = []
     
     if persistent_context.get('candidate_name'):
@@ -24,11 +29,11 @@ def build_unlimited_candidate_profile(persistent_context: dict) -> str:
         profile_parts.append(f"Interview Focus Areas: {focus_areas}")
     
     # UNLIMITED: Complete resume content
-    if persistent_context.get('complete_resume'):
+    if include_personal_details and persistent_context.get('complete_resume'):
         profile_parts.append(f"COMPLETE RESUME/BACKGROUND:\n{persistent_context['complete_resume']}")
     
     # UNLIMITED: Complete job description
-    if persistent_context.get('complete_job_description'):
+    if include_personal_details and persistent_context.get('complete_job_description'):
         profile_parts.append(f"COMPLETE JOB DESCRIPTION/REQUIREMENTS:\n{persistent_context['complete_job_description']}")
     
     return "\n".join(profile_parts) + "\n" if profile_parts else ""
@@ -110,11 +115,11 @@ GENERAL APPROACH:
     # PERSISTENT CANDIDATE CONTEXT - Always present, never removed
     prompt_parts.append("=" * 100)
     prompt_parts.append("🔒 PERSISTENT CANDIDATE CONTEXT (ALWAYS PRESENT - NEVER REMOVED):")
-    prompt_parts.append(build_unlimited_candidate_profile(persistent_context))
+    prompt_parts.append(build_unlimited_candidate_profile(persistent_context, settings.PERSONALIZE_ANSWERS))
     prompt_parts.append("=" * 100)
     
     # Recent conversation history (limited to MAX_CONVERSATION_HISTORY exchanges)
-    if conversation_history:
+    if settings.INCLUDE_CONVERSATION_HISTORY and conversation_history:
         prompt_parts.append(f"📝 RECENT CONVERSATION HISTORY (LAST {settings.MAX_CONVERSATION_HISTORY} EXCHANGES FOR CONTEXT):")
         for i, exchange in enumerate(conversation_history, 1):
             if exchange.get('interviewer_question'):
@@ -374,7 +379,7 @@ Give a brief, professional answer.
         profile_parts.append(f"You are {name}, applying for {role} at {company}.")
     
     # Include key resume highlights (a snippet for quick reference)
-    if resume:
+    if resume and settings.PERSONALIZE_ANSWERS:
         resume_preview = resume[:1200] + "..." if len(resume) > 1200 else resume
         profile_parts.append(f"Key background highlights: {resume_preview}")
     

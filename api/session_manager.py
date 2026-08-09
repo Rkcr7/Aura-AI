@@ -52,6 +52,24 @@ class InterviewSession:
         print(f"⬅️ [BACKEND] Sending 'api_key_status' for Deepgram. Valid: {is_valid}")
         await self._send_json("api_key_status", {"service": "deepgram", "valid": is_valid})
 
+    async def handle_verify_stt(self, payload: dict):
+        """Verifies the API key for the selected STT engine (deepgram or sixtydb)."""
+        self._touch()
+        engine = payload.get('engine', 'deepgram')
+        print(f"➡️ [BACKEND] Received 'verify_stt' (engine={engine}) for session {self.session_id}")
+
+        if engine == 'sixtydb':
+            from services.sixtydb_stt_service import verify_sixtydb_api_key
+            is_valid = await verify_sixtydb_api_key()
+            service = "sixtydb"
+        else:
+            from services.stt_service import verify_deepgram_api_key
+            is_valid = await verify_deepgram_api_key()
+            service = "deepgram"
+
+        print(f"⬅️ [BACKEND] Sending 'api_key_status' for {service}. Valid: {is_valid}")
+        await self._send_json("api_key_status", {"service": service, "valid": is_valid})
+
     async def handle_start_interview(self, payload: dict):
         """Handles the 'start_interview' message."""
         self._touch()
@@ -62,12 +80,13 @@ class InterviewSession:
             primary_vision_config = payload.get('visionProvider')
             secondary_vision_config = payload.get('visionSecondaryProvider')
             onboarding_context = payload.get('onboardingData', {})
-            
+            stt_engine = payload.get('stt_engine', 'deepgram')
+
             self.state["is_muted"] = payload.get('is_muted', False)
             self.state["process_all_speakers"] = payload.get('process_all_speakers', True)
             self.state["is_universally_muted"] = payload.get('is_universally_muted', False)
 
-            await self.initialize_managers(primary_provider_config, secondary_provider_config, primary_vision_config, secondary_vision_config, onboarding_context)
+            await self.initialize_managers(primary_provider_config, secondary_provider_config, primary_vision_config, secondary_vision_config, onboarding_context, stt_engine)
             
             current_preset = self.llm_manager.get_current_preset_info()
             health_results = await self.llm_manager.perform_health_checks()
@@ -197,7 +216,7 @@ class InterviewSession:
         await self._send_json("session_reset_complete", {"status": "ok"})
         print(f"✅ Session {self.session_id}: Context has been reset.")
 
-    async def initialize_managers(self, primary_provider_config, secondary_provider_config, primary_vision_config, secondary_vision_config, onboarding_context):
+    async def initialize_managers(self, primary_provider_config, secondary_provider_config, primary_vision_config, secondary_vision_config, onboarding_context, stt_engine='deepgram'):
         """Initializes all necessary managers for the session."""
         self.llm_manager = MultiLLMManager()
         config_loaded = self.llm_manager.load_configuration(
@@ -217,9 +236,15 @@ class InterviewSession:
         )
 
         user_languages = onboarding_context.get('selectedLanguages', [])
-        self.stt_manager = DeepgramManager(self.on_transcript, user_languages)
+        if stt_engine == 'sixtydb':
+            from services.sixtydb_stt_service import SixtyDBManager
+            self.stt_manager = SixtyDBManager(self.on_transcript, user_languages)
+            print(f"🎙️ Session {self.session_id}: STT engine = 60db")
+        else:
+            self.stt_manager = DeepgramManager(self.on_transcript, user_languages)
+            print(f"🎙️ Session {self.session_id}: STT engine = Deepgram")
         await self.stt_manager.start()
-        
+
         self.is_active = True
 
     async def _process_aggregated_transcript(self):

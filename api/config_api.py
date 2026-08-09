@@ -134,6 +134,24 @@ async def save_deepgram_key(request: SaveKeyRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving Deepgram key: {e}")
 
+@router.get("/api/sixtydb-key")
+async def get_sixtydb_key():
+    """Retrieves the current SIXTYDB_API_KEY from .env."""
+    key = env_manager.get_value("SIXTYDB_API_KEY")
+    return {"key": key or ""}
+
+@router.post("/api/save-sixtydb-key")
+async def save_sixtydb_key(request: SaveKeyRequest):
+    """Updates the SIXTYDB_API_KEY in the .env file."""
+    try:
+        success = env_manager.update_key("SIXTYDB_API_KEY", request.key)
+        if success:
+            return {"success": True, "message": "60db API key saved successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update .env file")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving 60db key: {e}")
+
 @router.post("/api/verify-provider")
 async def verify_ai_provider(request: ProviderVerifyRequest):
     """

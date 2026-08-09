@@ -77,6 +77,18 @@
                     <fieldset>
                         <legend>AI Configuration</legend>
                         <div class="ai-config-section">
+                            <div class="ai-config-stt">
+                                <h4>Speech-to-Text Engine</h4>
+                                <div class="ai-config-group">
+                                    <select id="stt-engine-select" required>
+                                        <option value="deepgram">Deepgram (Nova-3)</option>
+                                        <option value="sixtydb">60db</option>
+                                    </select>
+                                </div>
+                                <small class="config-hint">Engine used for live transcription. Configure its API key
+                                    in the Advanced Config tab.</small>
+                            </div>
+
                             <div class="ai-config-primary">
                                 <h4>Primary AI Model (Default)</h4>
                                 <div class="ai-config-group">
@@ -188,6 +200,16 @@
                             <small class="config-hint">Stored in <code>.env</code> file</small>
                         </div>
 
+                        <div class="sixtydb-config">
+                            <h4>60db API (Speech-to-Text)</h4>
+                            <div class="config-row">
+                                <input type="password" id="adv-sixtydb-key" placeholder="SIXTYDB_API_KEY">
+                                <button id="save-sixtydb-btn" class="save-small">Save Key</button>
+                            </div>
+                            <small class="config-hint">Optional alternative STT engine. Stored in <code>.env</code>
+                                file</small>
+                        </div>
+
                         <div class="providers-table-container">
                             <table class="providers-table">
                                 <thead>
@@ -294,7 +316,7 @@
                     <select id="mic-select" aria-label="Microphone device" disabled></select>
                 </div>
                 <div class="check-item" id="check-backend"><span class="indicator">⚪</span> Backend Connection</div>
-                <div class="check-item" id="check-deepgram"><span class="indicator">⚪</span> Deepgram API</div>
+                <div class="check-item" id="check-deepgram"><span class="indicator">⚪</span> Speech-to-Text API</div>
                 <div class="check-item" id="check-ai-provider"><span class="indicator">⚪</span> Primary AI Provider
                 </div>
                 <div class="check-item" id="check-ai-secondary-provider" style="display: none;"><span

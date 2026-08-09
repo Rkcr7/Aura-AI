@@ -24,6 +24,7 @@ export class StateManager {
                 model: null,
             },
             selectedLanguages: [],
+            selectedSttEngine: 'deepgram',
             currentPreset: null,
             availablePresets: [],
             systemStatus: null,
@@ -65,6 +66,7 @@ export class StateManager {
             visionModelSelect: document.getElementById('vision-model-select'),
             visionSecondaryProviderSelect: document.getElementById('vision-secondary-provider-select'),
             visionSecondaryModelSelect: document.getElementById('vision-secondary-model-select'),
+            sttEngineSelect: document.getElementById('stt-engine-select'),
             languageCheckboxes: document.querySelectorAll('input[name="language"]'),
         };
     }
@@ -170,6 +172,7 @@ export class StateManager {
         this.appState.selectedSecondaryVisionProvider.name = secondaryVisionProvider || null;
         this.appState.selectedSecondaryVisionProvider.model = secondaryVisionModel || null;
         this.appState.selectedLanguages = selectedLanguages;
+        this.appState.selectedSttEngine = this.onboardingForm.sttEngineSelect?.value || 'deepgram';
 
         devLog("Onboarding data captured:", this.appState);
         return true;

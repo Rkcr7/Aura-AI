@@ -330,15 +330,19 @@ export class ProviderManager {
             devLog('No secondary vision provider selected, skipping verification');
         }
 
-        // This is a new, separate step to verify the Deepgram key.
-        this.verifyDeepgram();
-        
+        // This is a new, separate step to verify the selected STT engine's key.
+        this.verifySttEngine();
+
         await this.verifyAiProviders();
     }
 
-    verifyDeepgram() {
-        devLog("➡️ [Pre-Flight] Requesting Deepgram API verification...");
-        this.webSocketHandler.sendMessage('verify_deepgram', {});
+    verifySttEngine() {
+        const state = this.stateManager.getState();
+        const engine = state.selectedSttEngine || 'deepgram';
+        const label = engine === 'sixtydb' ? '60db' : 'Deepgram';
+        devLog(`➡️ [Pre-Flight] Requesting ${label} STT verification...`);
+        this.webSocketHandler.updateCheckStatus(this.checks.deepgram, 'pending', `Checking ${label}...`);
+        this.webSocketHandler.sendMessage('verify_stt', { engine });
     }
 
     async verifyAiProviders() {
@@ -396,10 +400,11 @@ export class ProviderManager {
 
     handleApiKeyStatus({ service, valid }) {
         devLog(`⬅️ [ProviderManager] Handling 'api_key_status' for ${service}. Valid: ${valid}`);
-        
-        if (service === 'deepgram') {
+
+        // Both STT engines report through the same pre-flight check element.
+        if (service === 'deepgram' || service === 'sixtydb') {
             const checkElement = this.checks.deepgram;
-            const serviceName = "Deepgram";
+            const serviceName = service === 'sixtydb' ? '60db' : 'Deepgram';
             if (valid) {
                 this.webSocketHandler.updateCheckStatus(checkElement, 'success', `${serviceName} API OK`);
             } else {

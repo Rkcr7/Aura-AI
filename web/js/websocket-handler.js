@@ -322,6 +322,7 @@ export class WebSocketHandler {
                 model: state.selectedProvider.model
             },
             onboardingData: { ...state.onboardingData, selectedLanguages: state.selectedLanguages },
+            stt_engine: state.selectedSttEngine || 'deepgram',
             is_muted: initialMuteStatus.microphone,
             is_universally_muted: initialMuteStatus.universal,
             process_all_speakers: true,

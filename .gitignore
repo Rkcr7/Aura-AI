@@ -7,6 +7,9 @@ venv/
 __pycache__/
 *.pyc
 
+# --- Node (web UI tests) ---
+node_modules/
+
 # --- VSCode ---
 .vscode/
 

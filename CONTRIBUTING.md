@@ -58,7 +58,11 @@ python main.py
    git checkout -b feature/your-feature-name
    ```
 3. **Make your changes** — keep commits focused and atomic
-4. **Test** your changes locally
+4. **Test** your changes locally. For changes to the web UI's markdown or math rendering, run the JS tests (needs Node 20+):
+   ```bash
+   npm install
+   npm test
+   ```
 5. **Push** and open a Pull Request:
    ```bash
    git push origin feature/your-feature-name

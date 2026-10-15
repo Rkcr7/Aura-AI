@@ -8,6 +8,8 @@ export class ConfigManager {
             providersList: document.getElementById('adv-providers-list'),
             deepgramKey: document.getElementById('adv-deepgram-key'),
             saveDeepgramBtn: document.getElementById('save-deepgram-btn'),
+            sixtydbKey: document.getElementById('adv-sixtydb-key'),
+            saveSixtydbBtn: document.getElementById('save-sixtydb-btn'),
             saveProvidersBtn: document.getElementById('save-all-providers-btn')
         };
 
@@ -34,6 +36,13 @@ export class ConfigManager {
                 this.elements.deepgramKey.value = dData.key || '';
             }
 
+            // Load 60db key
+            const sResp = await fetch('/api/sixtydb-key');
+            const sData = await sResp.json();
+            if (this.elements.sixtydbKey) {
+                this.elements.sixtydbKey.value = sData.key || '';
+            }
+
             this.renderProviders();
         } catch (error) {
             console.error('Failed to load advanced config data:', error);
@@ -43,6 +52,10 @@ export class ConfigManager {
     setupEventListeners() {
         if (this.elements.saveDeepgramBtn) {
             this.elements.saveDeepgramBtn.addEventListener('click', () => this.saveDeepgramKey());
+        }
+
+        if (this.elements.saveSixtydbBtn) {
+            this.elements.saveSixtydbBtn.addEventListener('click', () => this.saveSixtydbKey());
         }
 
         if (this.elements.saveProvidersBtn) {
@@ -207,6 +220,39 @@ export class ConfigManager {
             if (resp.ok) {
                 btn.textContent = '✅ Saved';
                 devLog('Deepgram key saved successfully');
+            } else {
+                btn.textContent = '❌ Failed';
+            }
+
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 2000);
+        } catch (error) {
+            console.error('Save failed:', error);
+            btn.textContent = 'Error';
+            btn.disabled = false;
+        }
+    }
+
+    async saveSixtydbKey() {
+        const key = this.elements.sixtydbKey.value;
+        const btn = this.elements.saveSixtydbBtn;
+        const originalText = btn.textContent;
+
+        btn.textContent = 'Saving...';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch('/api/save-sixtydb-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            });
+
+            if (resp.ok) {
+                btn.textContent = '✅ Saved';
+                devLog('60db key saved successfully');
             } else {
                 btn.textContent = '❌ Failed';
             }

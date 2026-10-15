@@ -9,8 +9,11 @@ class Settings(BaseSettings):
     """
     # Required API Keys (no defaults - must be provided)
     DEEPGRAM_API_KEY: str
-    
-    
+
+    # Optional API Keys (default empty so the app still starts if unset)
+    # 60db is a selectable alternative speech-to-text engine alongside Deepgram.
+    SIXTYDB_API_KEY: str = ""
+
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
     
@@ -69,3 +72,4 @@ def print_config_debug():
     print(f"      GENERATE_FULL_ANSWERS = {settings.GENERATE_FULL_ANSWERS}")
     print(f"      PERSONALIZE_ANSWERS = {settings.PERSONALIZE_ANSWERS}")
     print(f"   🔑 API Keys: DEEPGRAM={'*' * 20 if settings.DEEPGRAM_API_KEY else 'Not Set'}")
+    print(f"   🔑 API Keys: 60DB={'*' * 20 if settings.SIXTYDB_API_KEY else 'Not Set'}")

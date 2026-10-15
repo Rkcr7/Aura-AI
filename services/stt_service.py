@@ -36,6 +36,113 @@ async def verify_deepgram_api_key():
         return False
 
 
+def build_programming_keyterms(user_languages=None):
+    """
+    Build a deduplicated, language-prioritized list of programming/technical
+    keyterms used for STT phrase boosting.
+
+    Shared by Deepgram (joined into a keyterm string) and 60db (used as a
+    `context.terms` array) so both engines boost the same vocabulary and behave
+    consistently. Returns the full ordered list; callers slice to their own limit.
+    """
+    # Core programming concepts and algorithms
+    keyterms = [
+        # LeetCode and coding platforms
+        "LeetCode", "leetcode", "LeetCode problem", "HackerRank", "CodeSignal", "Codility",
+        "coding interview", "technical interview", "whiteboard", "online judge",
+
+        # Common algorithm problems (with variations)
+        "two sum", "2sum", "two-sum", "three sum", "3sum", "three-sum",
+        "four sum", "4sum", "four-sum", "valid parentheses", "merge intervals",
+        "climbing stairs", "house robber", "coin change", "longest substring",
+        "palindrome", "reverse linked list", "binary tree traversal",
+        "binary search", "depth first search", "DFS", "breadth first search", "BFS",
+        "dynamic programming", "DP", "greedy algorithm", "backtracking",
+        "sliding window", "two pointers", "fast slow pointers",
+
+        # Data structures
+        "linked list", "binary tree", "binary search tree", "BST",
+        "hash map", "hash table", "hash set", "array", "stack", "queue",
+        "heap", "priority queue", "trie", "graph", "adjacency list",
+        "adjacency matrix", "disjoint set", "union find",
+
+        # Programming languages
+        "Python", "Java", "JavaScript", "TypeScript", "C++", "C sharp",
+        "Go", "Rust", "Swift", "Kotlin", "Scala", "Ruby", "PHP",
+
+        # Common programming terms (with pronunciation variations)
+        "algorithm", "algorithms", "complexity", "time complexity", "space complexity",
+        "Big O", "big oh", "O of n", "O of log n", "O of n squared", "O of 1", "O one",
+        "recursion", "recursive", "iteration", "iterative", "memoization", "tabulation",
+        "optimization", "optimize", "brute force", "optimal solution", "suboptimal",
+        "amortized", "worst case", "best case", "average case",
+
+        # Technical interview terms
+        "edge case", "corner case", "test case", "unit test",
+        "refactor", "optimize", "debug", "runtime", "memory",
+        "scalability", "performance", "bottleneck",
+
+        # Common coding patterns
+        "singleton", "factory", "observer", "decorator", "adapter",
+        "strategy", "command", "facade", "proxy", "builder",
+
+        # Database and system design
+        "SQL", "NoSQL", "database", "schema", "index", "query",
+        "JOIN", "LEFT JOIN", "INNER JOIN", "GROUP BY", "ORDER BY",
+        "API", "REST", "GraphQL", "microservices", "monolith",
+        "load balancer", "cache", "Redis", "MongoDB", "PostgreSQL",
+
+        # Web development
+        "React", "Angular", "Vue", "Node.js", "Express", "Django",
+        "Flask", "Spring", "HTML", "CSS", "DOM", "JSON", "XML",
+        "HTTP", "HTTPS", "GET", "POST", "PUT", "DELETE",
+
+        # Common technical terms
+        "variable", "function", "method", "class", "object", "instance",
+        "inheritance", "polymorphism", "encapsulation", "abstraction",
+        "interface", "abstract", "static", "final", "const", "let", "var",
+        "async", "await", "promise", "callback", "closure", "scope",
+
+        # Numbers and common values
+        "zero", "one", "two", "three", "four", "five", "null", "undefined",
+        "true", "false", "boolean", "integer", "string", "float", "double"
+    ]
+
+    # Prioritize keyterms based on user's selected languages
+    prioritized_keyterms = []
+
+    # Add user's selected languages first (higher priority)
+    if user_languages:
+        for lang in user_languages:
+            lang_lower = lang.lower()
+            # Add language-specific terms first
+            if lang_lower == 'python':
+                prioritized_keyterms.extend(['Python', 'Django', 'Flask', 'pandas', 'numpy', 'pip', 'virtualenv'])
+            elif lang_lower == 'java':
+                prioritized_keyterms.extend(['Java', 'Spring', 'Maven', 'Gradle', 'JVM', 'JDK', 'servlet'])
+            elif lang_lower == 'javascript':
+                prioritized_keyterms.extend(['JavaScript', 'Node.js', 'React', 'Vue', 'Angular', 'npm', 'webpack'])
+            elif lang_lower == 'typescript':
+                prioritized_keyterms.extend(['TypeScript', 'interface', 'type', 'generic', 'decorator'])
+            elif lang_lower == 'c++':
+                prioritized_keyterms.extend(['C++', 'STL', 'vector', 'iterator', 'template', 'namespace'])
+            elif lang_lower == 'sql':
+                prioritized_keyterms.extend(['SQL', 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'JOIN', 'WHERE'])
+
+    # Add general programming terms
+    prioritized_keyterms.extend(keyterms)
+
+    # Remove duplicates while preserving order
+    seen = set()
+    final_keyterms = []
+    for term in prioritized_keyterms:
+        if term not in seen:
+            seen.add(term)
+            final_keyterms.append(term)
+
+    return final_keyterms
+
+
 class DeepgramManager:
     """
     Manages the connection to Deepgram for live transcription.
@@ -65,101 +172,8 @@ class DeepgramManager:
         Limited to 500 tokens as per Deepgram requirements.
         Prioritizes terms based on user's selected programming languages.
         """
-        # Core programming concepts and algorithms
-        keyterms = [
-            # LeetCode and coding platforms
-            "LeetCode", "leetcode", "LeetCode problem", "HackerRank", "CodeSignal", "Codility",
-            "coding interview", "technical interview", "whiteboard", "online judge",
-            
-            # Common algorithm problems (with variations)
-            "two sum", "2sum", "two-sum", "three sum", "3sum", "three-sum", 
-            "four sum", "4sum", "four-sum", "valid parentheses", "merge intervals",
-            "climbing stairs", "house robber", "coin change", "longest substring",
-            "palindrome", "reverse linked list", "binary tree traversal",
-            "binary search", "depth first search", "DFS", "breadth first search", "BFS",
-            "dynamic programming", "DP", "greedy algorithm", "backtracking",
-            "sliding window", "two pointers", "fast slow pointers",
-            
-            # Data structures
-            "linked list", "binary tree", "binary search tree", "BST",
-            "hash map", "hash table", "hash set", "array", "stack", "queue",
-            "heap", "priority queue", "trie", "graph", "adjacency list",
-            "adjacency matrix", "disjoint set", "union find",
-            
-            # Programming languages
-            "Python", "Java", "JavaScript", "TypeScript", "C++", "C sharp",
-            "Go", "Rust", "Swift", "Kotlin", "Scala", "Ruby", "PHP",
-            
-            # Common programming terms (with pronunciation variations)
-            "algorithm", "algorithms", "complexity", "time complexity", "space complexity",
-            "Big O", "big oh", "O of n", "O of log n", "O of n squared", "O of 1", "O one",
-            "recursion", "recursive", "iteration", "iterative", "memoization", "tabulation",
-            "optimization", "optimize", "brute force", "optimal solution", "suboptimal",
-            "amortized", "worst case", "best case", "average case",
-            
-            # Technical interview terms
-            "edge case", "corner case", "test case", "unit test",
-            "refactor", "optimize", "debug", "runtime", "memory",
-            "scalability", "performance", "bottleneck",
-            
-            # Common coding patterns
-            "singleton", "factory", "observer", "decorator", "adapter",
-            "strategy", "command", "facade", "proxy", "builder",
-            
-            # Database and system design
-            "SQL", "NoSQL", "database", "schema", "index", "query",
-            "JOIN", "LEFT JOIN", "INNER JOIN", "GROUP BY", "ORDER BY",
-            "API", "REST", "GraphQL", "microservices", "monolith",
-            "load balancer", "cache", "Redis", "MongoDB", "PostgreSQL",
-            
-            # Web development
-            "React", "Angular", "Vue", "Node.js", "Express", "Django",
-            "Flask", "Spring", "HTML", "CSS", "DOM", "JSON", "XML",
-            "HTTP", "HTTPS", "GET", "POST", "PUT", "DELETE",
-            
-            # Common technical terms
-            "variable", "function", "method", "class", "object", "instance",
-            "inheritance", "polymorphism", "encapsulation", "abstraction",
-            "interface", "abstract", "static", "final", "const", "let", "var",
-            "async", "await", "promise", "callback", "closure", "scope",
-            
-            # Numbers and common values
-            "zero", "one", "two", "three", "four", "five", "null", "undefined",
-            "true", "false", "boolean", "integer", "string", "float", "double"
-        ]
-        
-        # Prioritize keyterms based on user's selected languages
-        prioritized_keyterms = []
-        
-        # Add user's selected languages first (higher priority)
-        if user_languages:
-            for lang in user_languages:
-                lang_lower = lang.lower()
-                # Add language-specific terms first
-                if lang_lower == 'python':
-                    prioritized_keyterms.extend(['Python', 'Django', 'Flask', 'pandas', 'numpy', 'pip', 'virtualenv'])
-                elif lang_lower == 'java':
-                    prioritized_keyterms.extend(['Java', 'Spring', 'Maven', 'Gradle', 'JVM', 'JDK', 'servlet'])
-                elif lang_lower == 'javascript':
-                    prioritized_keyterms.extend(['JavaScript', 'Node.js', 'React', 'Vue', 'Angular', 'npm', 'webpack'])
-                elif lang_lower == 'typescript':
-                    prioritized_keyterms.extend(['TypeScript', 'interface', 'type', 'generic', 'decorator'])
-                elif lang_lower == 'c++':
-                    prioritized_keyterms.extend(['C++', 'STL', 'vector', 'iterator', 'template', 'namespace'])
-                elif lang_lower == 'sql':
-                    prioritized_keyterms.extend(['SQL', 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'JOIN', 'WHERE'])
-        
-        # Add general programming terms
-        prioritized_keyterms.extend(keyterms)
-        
-        # Remove duplicates while preserving order
-        seen = set()
-        final_keyterms = []
-        for term in prioritized_keyterms:
-            if term not in seen:
-                seen.add(term)
-                final_keyterms.append(term)
-        
+        final_keyterms = build_programming_keyterms(user_languages)
+
         # Join keyterms with proper URL encoding for multiple keyterms
         # Using space separation as recommended by Deepgram for phrase boosting
         # Limit to ensure we stay under 500 token limit (roughly 80-85 terms)

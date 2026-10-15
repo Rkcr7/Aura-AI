@@ -524,6 +524,28 @@ select:disabled {
     color: var(--accent-warning);
 }
 
+.ai-config-stt {
+    padding: var(--space-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+    position: relative;
+    border-left: 3px solid var(--accent-success);
+}
+
+.ai-config-stt h4 {
+    margin: 0 0 var(--space-sm) 0;
+    font-size: var(--font-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent-success);
+}
+
+.ai-config-stt .ai-config-group {
+    grid-template-columns: 1fr;
+}
+
 .ai-config-group {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -693,6 +715,21 @@ select:disabled {
 }
 
 .deepgram-config h4 {
+    margin-top: 0;
+    color: var(--accent-success);
+    font-size: var(--font-sm);
+    text-transform: uppercase;
+}
+
+.sixtydb-config {
+    margin-bottom: var(--space-xl);
+    padding: var(--space-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+}
+
+.sixtydb-config h4 {
     margin-top: 0;
     color: var(--accent-success);
     font-size: var(--font-sm);

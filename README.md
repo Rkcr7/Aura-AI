@@ -327,7 +327,8 @@ When combined with Stealth Mode, Vision AI becomes even more potent:
 
 ### 🎤 **Real-Time Voice Intelligence (Completely Stealthy)**
 
-- **Live Transcription** — Deepgram-powered, high-accuracy speech-to-text with continuous streaming. Captures both interviewer questions and your responses in real-time
+- **Selectable STT Engine** — Choose your real-time transcription engine per session: **Deepgram** (Nova-3) or **60db**. Pick it from the AI Setup tab — both stream over WebSockets and feed the exact same coaching pipeline
+- **Live Transcription** — High-accuracy speech-to-text with continuous streaming. Captures both interviewer questions and your responses in real-time
 - **Context-Aware Coaching** — Aura knows your resume, job description, target role, and the full conversation history. Every response is hyper-personalized to *you* and the specific question being asked
 - **Conversation Memory** — Remembers the entire interview (configurable up to 20 exchanges) for cross-referencing past questions, detecting follow-ups, and maintaining consistent narrative
 - **Candidate Response Tracking** — Optionally tracks what you say so Aura can provide follow-up suggestions, catch mistakes, and help you build on previous answers
@@ -359,7 +360,8 @@ This diagram illustrates Aura's multi-layered architecture—designed for real-t
 | **Config API** | `api/config_api.py` | REST endpoints for settings, providers, transparency |
 | **Session manager** | `api/session_manager.py` | Interview lifecycle and state management |
 | **LLM service** | `services/llm_service.py` | Multi-provider AI with key rotation, failover, health checks |
-| **STT service** | `services/stt_service.py` | Deepgram real-time transcription with auto-reconnect |
+| **STT service (Deepgram)** | `services/stt_service.py` | Deepgram Nova-3 real-time transcription with auto-reconnect |
+| **STT service (60db)** | `services/sixtydb_stt_service.py` | 60db WebSocket transcription — drop-in alternative with the same interface |
 | **Vision service** | `services/vision_service.py` | Screenshot analysis with auto content-type detection |
 | **Context manager** | `services/context_manager.py` | Persistent profile, resume, JD, conversation history |
 | **Prompts** | `core/prompts.py` | AI system prompts and expert coaching instructions |
@@ -505,7 +507,20 @@ Deepgram is the **core engine** that powers Aura's real-time transcription. It l
 |---|---------|
 | **Sign up** | [console.deepgram.com](https://console.deepgram.com/) |
 | **Free tier** | **$200 in credits** — enough for ~100+ hours of transcription |
-| **Why it's required** | Core STT engine — powers all voice intelligence features |
+| **Why it's required** | Default STT engine — powers all voice intelligence features |
+
+> **🔁 Prefer a different STT engine?** Aura also supports **60db** as a selectable alternative to Deepgram — see below. At least **one** STT engine (Deepgram **or** 60db) must be configured.
+
+### 🎙️ 60db (Optional — Alternative Speech-to-Text Engine)
+
+60db is a selectable alternative to Deepgram for real-time transcription. Add your key, then choose **60db** as the Speech-to-Text Engine in the AI Setup tab. It streams over a WebSocket and feeds the identical coaching pipeline — including the same programming/technical keyword boosting Deepgram uses.
+
+| | Details |
+|---|---------|
+| **Sign up** | [60db.ai](https://60db.ai/) |
+| **API key** | Stored as `SIXTYDB_API_KEY` in `.env` (set it in the **Advanced Config** tab) |
+| **Engine** | Real-time WebSocket STT (`wss://api.60db.ai/ws/stt`), 16-bit PCM @ 48 kHz |
+| **How to select** | AI Setup tab → **Speech-to-Text Engine** → `60db` |
 
 ### ⚡ Cerebras (Recommended — Fastest Text AI)
 
@@ -583,7 +598,8 @@ The app **auto-creates** `.env` from `.env.example` on first run.
 
 ```env
 # ─── API Keys ───
-DEEPGRAM_API_KEY="your_key"              # Required — Deepgram speech-to-text
+DEEPGRAM_API_KEY="your_key"              # Deepgram speech-to-text (default STT engine)
+SIXTYDB_API_KEY=""                       # 60db speech-to-text (optional alternative STT engine)
 
 # ─── Logging ───
 LOG_LEVEL=INFO                            # DEBUG, INFO, WARNING, ERROR
@@ -738,7 +754,7 @@ SCROLL_INTERVAL_MS=70    # Higher = less frequent
 | **Runtime** | Python 3.8+, asyncio |
 | **Web framework** | FastAPI + Uvicorn |
 | **Desktop shell** | pywebview (WinForms backend) |
-| **Speech-to-text** | Deepgram SDK v3 |
+| **Speech-to-text** | Deepgram SDK v3 **or** 60db (`websockets`) — selectable per session |
 | **LLM clients** | OpenAI-compatible SDK (Groq, Cerebras, Gemini, OpenRouter) |
 | **Global hotkeys** | pynput |
 | **Win32 integration** | ctypes — capture protection, transparency, window management |

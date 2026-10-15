@@ -11,3 +11,4 @@ orjson
 aiofiles
 pynput
 python-dotenv
+websockets

@@ -2,6 +2,7 @@
 // Integrates with existing MarkdownProcessor for incremental rendering
 
 import { MarkdownProcessor } from './markdown-processor.js';
+import { maskMath, maskFencedCode, maskInlineCode, findUnclosedDisplayMath } from './math-renderer.js';
 
 export class StreamingMarkdownParser {
     constructor() {
@@ -71,7 +72,10 @@ export class StreamingMarkdownParser {
             newContent.includes('**') ||                            // Bold formatting
             newContent.includes('`') ||                             // Code formatting
             newContent.includes('[') ||                             // Link start
-            newContent.includes('](')                               // Link completion
+            newContent.includes('](') ||                            // Link completion
+            newContent.includes('$') ||                             // Math delimiter
+            newContent.includes('\\]') ||                           // Display math close
+            newContent.includes('\\)')                              // Inline math close
         ) {
             return true;
         }
@@ -137,28 +141,60 @@ export class StreamingMarkdownParser {
             content = content.substring(0, lastCodeBlock);
         }
         
-        // Don't process incomplete inline formatting
-        const lastAsterisk = content.lastIndexOf('**');
-        const lastBacktick = content.lastIndexOf('`');
-        const lastBracket = content.lastIndexOf('[');
-        
-        // If there's an opening marker without a close, truncate
-        if (lastAsterisk > -1 && !content.slice(lastAsterisk + 2).includes('**')) {
-            content = content.substring(0, lastAsterisk);
+        // Don't process a display equation ($$ or \[) until its closer arrives,
+        // otherwise every chunk re-renders half an equation
+        const unclosedMath = findUnclosedDisplayMath(content);
+        if (unclosedMath > -1) {
+            content = content.substring(0, unclosedMath);
         }
-        
-        if (lastBacktick > -1 && !content.slice(lastBacktick + 1).includes('`')) {
-            content = content.substring(0, lastBacktick);
-        }
-        
-        if (lastBracket > -1 && !content.slice(lastBracket).includes('](')) {
-            content = content.substring(0, lastBracket);
+
+        // Don't process incomplete inline formatting. Markers are searched in
+        // same-length copies (so indexes line up) with code and math blanked
+        // out: equations are full of `[` and `*`, code full of `**`. Fences go
+        // first so a `$` inside code can't pair with one after the fence.
+        const masked = maskMath(maskFencedCode(content));
+        const maskedProse = maskInlineCode(masked);
+        const cutPoints = [
+            this.findUnclosedPairedMarker(maskedProse, '**'),
+            this.findUnclosedPairedMarker(masked, '`'),
+            this.findUnclosedLink(maskedProse)
+        ].filter(index => index > -1);
+
+        // Truncate at the earliest unclosed marker
+        if (cutPoints.length > 0) {
+            content = content.substring(0, Math.min(...cutPoints));
         }
         
         // Filter thinking content AFTER determining safe content boundaries
         content = this.filterThinkingContent(content);
         
         return content;
+    }
+
+    /**
+     * Index of the last `marker` if it opens a pair that hasn't closed yet
+     * (odd number of markers), else -1.
+     */
+    findUnclosedPairedMarker(text, marker) {
+        const count = text.split(marker).length - 1;
+        return count % 2 === 1 ? text.lastIndexOf(marker) : -1;
+    }
+
+    /**
+     * Index of a trailing `[` that may still become a link, else -1. A `[`
+     * whose `]` already arrived and isn't followed by `(` is plain text
+     * (e.g. `array[0]`, `[1]`) and must not hold back the rest of the reply.
+     */
+    findUnclosedLink(text) {
+        const lastBracket = text.lastIndexOf('[');
+        if (lastBracket === -1) return -1;
+
+        const tail = text.slice(lastBracket);
+        const close = tail.indexOf(']');
+        const linkStillOpen = close === -1                                  // [text...
+            || close === tail.length - 1                                    // [text]  ( may follow
+            || (tail[close + 1] === '(' && !tail.includes(')', close));     // [text](url...
+        return linkStillOpen ? lastBracket : -1;
     }
 
     /**

@@ -844,3 +844,36 @@
 .message.complete .markdown-image {
     animation: markdownFadeIn 0.4s ease forwards;
 }
+/* ==============================================
+   MATH (KaTeX)
+   ============================================== */
+
+/* Reset text styling inherited from the surrounding markdown. Uppercase
+   headings (h4, table headers) would otherwise turn x into X, which changes
+   the math, and pre-wrap / break-word fight KaTeX's own line breaking. */
+.md-math {
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+}
+
+/* Long equations scroll sideways inside the narrow overlay instead of
+   overflowing the message or being clipped */
+.md-math-display {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.md-math-display .katex-display {
+    margin: 0.5em 0;
+}
+
+/* KaTeX's 1.21em default looks oversized next to the overlay's body text */
+.md-math .katex {
+    font-size: 1.1em;
+}

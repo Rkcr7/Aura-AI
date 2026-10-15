@@ -1,6 +1,8 @@
 // Markdown Processor for Live Interview
 // Handles comprehensive markdown parsing while preserving code blocks
 
+import { extractMath, restoreMath } from './math-renderer.js';
+
 export class MarkdownProcessor {
     constructor(config = {}) {
         this.config = {
@@ -13,6 +15,7 @@ export class MarkdownProcessor {
             enableBlockquotes: true,
             enableLinks: true,
             enableTaskLists: true,
+            enableMath: true,
             ...config
         };
         
@@ -68,22 +71,55 @@ export class MarkdownProcessor {
 
         // Step 1: Extract and protect code blocks
         const { textWithPlaceholders, codeBlocks } = this.extractCodeBlocks(text);
-        
+
+        // Step 1a: Extract LaTeX math the same way. It must leave before
+        // escaping (so `x < 5` reaches KaTeX intact) and before the inline
+        // passes (so `a * b * c` isn't italicised and `[0, 1]` isn't a link).
+        const { text: textWithoutMath, segments: mathSegments } = this.config.enableMath
+            ? extractMath(textWithPlaceholders)
+            : { text: textWithPlaceholders, segments: [] };
+
         // Step 1b: Neutralize raw HTML in the remaining source BEFORE any markdown
         // substitution. Fenced code blocks were already pulled out above, so their
         // content is untouched here and stays escaped exactly once at render time.
-        const escapedText = this.escapeMarkdownSource(textWithPlaceholders);
+        const escapedText = this.escapeMarkdownSource(textWithoutMath);
 
         // Step 2: Parse block elements (headers, lists, paragraphs, tables, etc.)
         const blockParsed = this.parseBlockElements(escapedText);
-        
+
         // Step 3: Parse inline elements within each block
         const inlineParsed = this.parseInlineElements(blockParsed);
-        
+
         // Step 4: Restore code blocks
-        const finalContent = this.restoreCodeBlocks(inlineParsed, codeBlocks);
-        
-        return finalContent;
+        const withCode = this.restoreCodeBlocks(inlineParsed, codeBlocks);
+
+        // Step 5: Render math into its placeholders
+        return this.restoreMathBlocks(withCode, mathSegments);
+    }
+
+    /**
+     * Replace __MATH_n__ placeholders in every text-bearing part of each block.
+     * Returns new block objects; code blocks pass through untouched.
+     */
+    restoreMathBlocks(blocks, mathSegments) {
+        if (mathSegments.length === 0) return blocks;
+
+        const render = (html) => restoreMath(html, mathSegments);
+
+        return blocks.map(block => {
+            if (block.type === 'code') return block;
+            if (block.type === 'list') {
+                return { ...block, items: block.items.map(item => ({ ...item, content: render(item.content) })) };
+            }
+            if (block.type === 'table') {
+                return {
+                    ...block,
+                    headers: block.headers.map(render),
+                    rows: block.rows.map(row => row.map(render))
+                };
+            }
+            return block.content ? { ...block, content: render(block.content) } : block;
+        });
     }
 
     /**

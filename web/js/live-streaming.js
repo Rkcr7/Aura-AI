@@ -317,13 +317,19 @@ export class LiveStreaming {
                     await this.streamSimpleTextIntoElement(targetElement, text, speed, onProgress);
                 }
             } else if (child.nodeType === Node.ELEMENT_NODE) {
-                const formattedElement = child.cloneNode(false);
-                targetElement.appendChild(formattedElement);
-                
-                if (child.textContent) {
-                    await this.streamSimpleTextIntoElement(formattedElement, child.textContent, speed, onProgress);
+                if (child.classList.contains('md-math')) {
+                    // Rendered math is a deep tree of positioned spans; typing
+                    // its text out word by word would destroy it. Show it whole.
+                    targetElement.appendChild(child.cloneNode(true));
+                    if (onProgress) onProgress();
+                } else {
+                    // Recurse so formatting that wraps math (e.g. **$x$**) keeps
+                    // its inner structure instead of being flattened to text
+                    const formattedElement = child.cloneNode(false);
+                    targetElement.appendChild(formattedElement);
+                    await this.streamMixedContent(formattedElement, child, speed, onProgress);
                 }
-                
+
                 await this.delay(30);
             }
         }
@@ -395,10 +401,16 @@ export class LiveStreaming {
         
         if (element.nodeType === Node.ELEMENT_NODE) {
             // Check if this element has direct text content
+            // Skip text inside rendered math: wrapping KaTeX glyphs in word
+            // spans breaks its layout
             const walker = document.createTreeWalker(
                 element,
                 NodeFilter.SHOW_TEXT,
-                null,
+                {
+                    acceptNode: (node) => node.parentElement?.closest('.md-math')
+                        ? NodeFilter.FILTER_REJECT
+                        : NodeFilter.FILTER_ACCEPT
+                },
                 false
             );
             
@@ -414,19 +426,24 @@ export class LiveStreaming {
             textNodes.forEach(textNode => {
                 const text = textNode.textContent;
                 const parent = textNode.parentNode;
-                
-                // Create word spans
-                const words = text.split(' ');
+
+                // Create word spans. Whitespace is kept as its own text node:
+                // dropping a leading space ran words into the element before
+                // them ("$T$ into" showed as "Tinto")
+                const parts = text.split(/(\s+)/);
                 const fragment = document.createDocumentFragment();
-                
-                words.forEach((word, i) => {
-                    if (word.trim()) {
-                        const wordSpan = document.createElement('span');
-                        wordSpan.className = 'word';
-                        wordSpan.style.opacity = '1';
-                        wordSpan.textContent = word + (i < words.length - 1 ? ' ' : '');
-                        fragment.appendChild(wordSpan);
+
+                parts.forEach(part => {
+                    if (!part) return;
+                    if (!part.trim()) {
+                        fragment.appendChild(document.createTextNode(part));
+                        return;
                     }
+                    const wordSpan = document.createElement('span');
+                    wordSpan.className = 'word';
+                    wordSpan.style.opacity = '1';
+                    wordSpan.textContent = part;
+                    fragment.appendChild(wordSpan);
                 });
                 
                 parent.replaceChild(fragment, textNode);

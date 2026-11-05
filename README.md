@@ -31,6 +31,7 @@
 | 📴 **No internet needed to load** | Fonts, syntax highlighting and math ship with Aura now, so the UI loads the same offline or on a network that blocks Google Fonts or cdnjs |
 | 🧮 **Math renders properly** | LaTeX in answers shows up as real equations instead of raw `$...$` |
 | 🩺 **Blank window explained** | If WebView2 can't start, the terminal says why and how to fix it instead of leaving an empty window |
+| 🔌 **Starts without internet** | `run.bat` only runs pip when `requirements.txt` changes, so it launches in ~2s and no longer stalls for minutes offline |
 
 ### Also new in v1.1.0
 
@@ -752,6 +753,7 @@ SCROLL_INTERVAL_MS=70    # Higher = less frequent
 2. Verify Python 3.8+ is installed and in PATH
 3. Recreate venv: `rmdir /s venv` then `python -m venv venv`
 4. Run `pip install -r requirements.txt` manually
+5. A package got broken? Delete `venv\requirements.installed.txt` and run `run.bat`. It only runs pip when `requirements.txt` changes (that's what lets it start offline), so this forces a fresh install
 </details>
 
 ---

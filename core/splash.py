@@ -114,6 +114,17 @@ _TEMPLATE = """<!DOCTYPE html>
     background: linear-gradient(90deg, transparent, #a78bfa, #2dd4bf, transparent);
     animation: sweep 1.25s ease-in-out infinite;
   }
+  .status {
+    max-width: 340px;
+    margin-top: 20px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+    color: #fca5a5;
+  }
+  /* Set by showStartupError(): stop the "loading" motion, show the message */
+  .failed .logo, .failed .mark, .failed .mark-wrap::before { animation: none; }
+  .failed .track { visibility: hidden; }
   @keyframes appear { to { opacity: 1; } }
   @keyframes glow {
     0%, 100% { opacity: 0.55; transform: scale(0.94); }
@@ -143,7 +154,18 @@ _TEMPLATE = """<!DOCTYPE html>
     <div class="logo">AURA AI</div>
     <div class="tagline">AI Interview Coach</div>
     <div class="track"></div>
+    <div class="status" id="status" hidden></div>
   </div>
+  <script>
+    // main.py calls this when the local server can't start, so the window
+    // says so instead of spinning forever (and the terminal may be hidden)
+    window.showStartupError = function () {
+      document.body.classList.add('failed');
+      var status = document.getElementById('status');
+      status.textContent = "Aura couldn't start. The terminal shows why (launch with run.bat to see it).";
+      status.hidden = false;
+    };
+  </script>
 </body>
 </html>
 """

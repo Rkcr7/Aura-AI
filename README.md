@@ -723,7 +723,7 @@ The Aura window runs on Microsoft Edge WebView2. If it stays empty (a plain dark
    run.bat
    ```
 3. Aura keeps running either way, so you can open `http://127.0.0.1:8002` (or the port shown in the terminal) in a browser meanwhile. ⚠️ A browser tab is **not** hidden from screen sharing
-4. Stuck on the AURA AI loading screen instead? The window is fine but the local server didn't start, look for a `❌` error in the terminal
+4. Stuck on the AURA AI loading screen, or it says Aura couldn't start? The window is fine but the local server is slow or didn't start, look for a `⏳` note or a `❌` error in the terminal
 </details>
 
 <details>

@@ -394,6 +394,11 @@ class AsyncioServiceThread:
             include_api_routes(app)
             from api.session_manager import session_manager
 
+            # Closed while importing: skip starting anything, so the closing
+            # window isn't left waiting on a server it no longer needs
+            if self.shutdown_event.is_set():
+                return
+
             # Start the Uvicorn server
             await uvicorn_server.start()
             
@@ -431,22 +436,30 @@ class AsyncioServiceThread:
 # Global asyncio service thread instance
 asyncio_service_thread = AsyncioServiceThread()
 
-SERVER_START_TIMEOUT_S = 10.0
+SLOW_START_NOTE_S = 10.0
 
 
-def wait_for_server_start(timeout_s: float = SERVER_START_TIMEOUT_S) -> bool:
-    """Block until uvicorn accepts connections. False on timeout or if the services thread died.
+def wait_for_server_start(stop_waiting=lambda: False) -> bool:
+    """Block until uvicorn accepts connections.
 
-    Replaces a fixed 2s sleep: the server is normally up ~20ms after the thread starts.
+    Returns False if the services thread died (the server will never come up)
+    or stop_waiting() says to give up, e.g. the window was closed. No deadline
+    otherwise: the server is usually up within a second, but a cold first
+    launch can spend a while importing the AI SDKs, and loading the app before
+    the server answers would only show Edge's error page.
     """
-    deadline = time.monotonic() + timeout_s
-    while time.monotonic() < deadline:
+    started_at = time.monotonic()
+    noted = False
+    while not stop_waiting():
         server = uvicorn_server.server
         if server is not None and server.started:
             return True
         thread = asyncio_service_thread.thread
         if thread is not None and not thread.is_alive():
             return False
+        if not noted and time.monotonic() - started_at > SLOW_START_NOTE_S:
+            print("⏳ Still starting up, the first launch after an install or update can take a while...")
+            noted = True
         time.sleep(0.01)
     return False
 
@@ -538,12 +551,24 @@ def open_app_when_ready(window) -> None:
     Runs on pywebview's own thread (webview.start's func), so the window and
     its splash are already up while the services thread finishes booting.
     """
-    if not wait_for_server_start():
-        print("⚠️ The server isn't up (look for a ❌ error above), opening the app anyway")
+    def window_closed() -> bool:
+        return window.events.closing.is_set() or window.events.closed.is_set()
+
+    if wait_for_server_start(stop_waiting=window_closed):
+        try:
+            window.load_url(app_url())
+        except Exception as e:  # WebViewException if the window never showed
+            print(f"❌ Couldn't load Aura into the window: {e}")
+        return
+
+    if window_closed():
+        return
+    # Stay on the splash and say so there too: silent_run.vbs hides the terminal
+    print("❌ Aura's local server didn't start (see the error above), so the window can't load the app")
     try:
-        window.load_url(app_url())
-    except Exception as e:  # WebViewException if the window never showed
-        print(f"❌ Couldn't load Aura into the window: {e}")
+        window.evaluate_js("window.showStartupError && window.showStartupError()")
+    except Exception:
+        pass  # the splash never loaded either, which the watchdog reports
 
 # --- Main Application Entry Point ---
 def main():

@@ -124,7 +124,9 @@ class WatchPageLoadTests(unittest.TestCase):
         message = reports.messages[0]
         self.assertIn("didn't report an error", message)
         self.assertNotIn("failed to start", message)
-        self.assertIn("firewall", message)
+        # The splash is inline HTML, so a stall here is WebView2 itself, not the network
+        self.assertIn("never finished starting", message)
+        self.assertNotIn("firewall", message)
         self.assertIn(watchdog.WEBVIEW2_DOWNLOAD_URL, message)
         self.assertIn(URL, message)
 

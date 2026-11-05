@@ -17,7 +17,12 @@ class SplashTests(unittest.TestCase):
         # It paints before the server is up, so it can't fetch anything
         self.assertNotRegex(splash.SPLASH_HTML, r"https?://")
         self.assertNotIn("/static/", splash.SPLASH_HTML)
-        self.assertNotRegex(splash.SPLASH_HTML, r"<script|<link")
+        self.assertNotRegex(splash.SPLASH_HTML, r"<script[^>]*\bsrc=|<link")
+
+    def test_can_report_a_failed_start(self):
+        # main.py calls this when the server can't start, instead of leaving it spinning
+        self.assertIn("window.showStartupError = function", splash.SPLASH_HTML)
+        self.assertIn('id="status" hidden', splash.SPLASH_HTML)
 
     def test_embeds_the_logo_inline(self):
         self.assertIn('src="data:image/png;base64,', splash.SPLASH_HTML)

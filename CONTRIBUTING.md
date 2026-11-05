@@ -63,6 +63,10 @@ python main.py
    npm install
    npm test
    ```
+   For Python changes, run the Python tests (standard library only, nothing extra to install):
+   ```bash
+   python -m unittest discover -s tests/python
+   ```
 5. **Push** and open a Pull Request:
    ```bash
    git push origin feature/your-feature-name

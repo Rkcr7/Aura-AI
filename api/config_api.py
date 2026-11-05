@@ -1,6 +1,6 @@
 import orjson
 import aiofiles
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from core.config import settings
 from core.key_utils import resolve_provider_keys
@@ -12,6 +12,17 @@ import shutil
 import os
 
 router = APIRouter()
+
+def require_local_client(request: Request):
+    """
+    Guards sensitive config endpoints (API key exposure/modification) by
+    rejecting any request that didn't originate from the local machine.
+    The server only binds to 127.0.0.1, but this adds an explicit
+    authorization check in case of future misconfiguration (e.g. a proxy).
+    """
+    client_host = request.client.host if request.client else None
+    if client_host not in ("127.0.0.1", "::1", "localhost"):
+        raise HTTPException(status_code=403, detail="Forbidden: local access only")
 
 class TransparencyRequest(BaseModel):
     transparency: float  # 0.0 to 1.0
@@ -87,7 +98,7 @@ async def get_ai_providers():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading provider config: {e}")
 
-@router.get("/api/ai-providers/full")
+@router.get("/api/ai-providers/full", dependencies=[Depends(require_local_client)])
 async def get_ai_providers_full():
     """
     Returns the full ai_providers.json INCLUDING API keys.
@@ -106,7 +117,7 @@ async def get_ai_providers_full():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading full provider config: {e}")
 
-@router.post("/api/save-ai-providers")
+@router.post("/api/save-ai-providers", dependencies=[Depends(require_local_client)])
 async def save_ai_providers(request: SaveProvidersRequest):
     """Saves the full provider configuration to ai_providers.json."""
     try:
@@ -116,13 +127,13 @@ async def save_ai_providers(request: SaveProvidersRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving provider config: {e}")
 
-@router.get("/api/deepgram-key")
+@router.get("/api/deepgram-key", dependencies=[Depends(require_local_client)])
 async def get_deepgram_key():
     """Retrieves the current DEEPGRAM_API_KEY from .env."""
     key = env_manager.get_value("DEEPGRAM_API_KEY")
     return {"key": key or ""}
 
-@router.post("/api/save-deepgram-key")
+@router.post("/api/save-deepgram-key", dependencies=[Depends(require_local_client)])
 async def save_deepgram_key(request: SaveKeyRequest):
     """Updates the DEEPGRAM_API_KEY in the .env file."""
     try:

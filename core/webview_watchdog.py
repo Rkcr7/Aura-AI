@@ -88,11 +88,16 @@ def explain_blank_window(url: str, reasons: Sequence[str], timeout_s: float) -> 
 
 
 def explain_legacy_renderer(url: str) -> str:
-    """The console message for pywebview falling back to Internet Explorer."""
+    """The console message for pywebview running on Internet Explorer.
+
+    Usually the WebView2 runtime is missing, but pywebview also picks IE when
+    PYWEBVIEW_GUI=mshtml is set or .NET is older than 4.6.2, so don't claim more.
+    """
     return "\n".join([
         "",
-        "⚠️ The Microsoft Edge WebView2 Runtime isn't installed, so the Aura window fell back",
-        "   to the old Internet Explorer engine and won't work properly.",
+        "⚠️ The Aura window is running on the old Internet Explorer engine instead of",
+        "   Microsoft Edge WebView2, so it won't work properly. Usually that means the",
+        "   WebView2 Runtime isn't installed (it also happens if PYWEBVIEW_GUI=mshtml is set).",
         "   Fix: install the WebView2 Runtime, then restart Aura:",
         f"     {WEBVIEW2_DOWNLOAD_URL}",
         *_browser_fallback(url),

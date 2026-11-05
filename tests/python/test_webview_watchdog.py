@@ -42,11 +42,17 @@ class Reports:
 
 
 class FakeEvent:
-    """The parts of pywebview's Event the watchdog uses: wait/set/is_set and +=."""
+    """The parts of pywebview's Event the watchdog uses: wait/set/is_set and +=.
+
+    Also records when it was set and every wait() the watchdog made, so tests
+    can check the worker's actual state instead of guessing it with sleeps.
+    """
 
     def __init__(self):
         self._event = threading.Event()
         self._handlers = []
+        self.set_at = None
+        self.waits = []  # (started_at, timeout, result)
 
     def __iadd__(self, handler):
         self._handlers.append(handler)
@@ -55,13 +61,25 @@ class FakeEvent:
     def set(self, *args):
         for handler in self._handlers:
             handler(*args)
+        self.set_at = time.monotonic()
         self._event.set()
 
     def is_set(self):
         return self._event.is_set()
 
     def wait(self, timeout=None):
-        return self._event.wait(timeout)
+        started_at = time.monotonic()
+        result = self._event.wait(timeout)
+        self.waits.append((started_at, timeout, result))
+        return result
+
+
+def wait_until(condition, timeout=2.0):
+    deadline = time.monotonic() + timeout
+    while not condition():
+        if time.monotonic() > deadline:
+            raise AssertionError("timed out waiting for the watchdog")
+        time.sleep(0.005)
 
 
 def fake_window():
@@ -179,14 +197,18 @@ class StartPageLoadWatchdogTests(unittest.TestCase):
         self.assertEqual(self.logger.handlers, self.handlers_before)
 
     def test_the_clock_starts_when_the_window_shows(self):
+        events = self.window.events
         thread = self.start(timeout_s=0.2)
-        self.window.events.initialized.set("edgechromium")
-        time.sleep(0.4)  # slow startup before the window appears: longer than timeout_s
-        self.window.events.shown.set()
-        self.window.events.loaded.set()
+        events.initialized.set("edgechromium")
+        time.sleep(0.3)  # slow startup before the window appears: longer than timeout_s
+        events.shown.set()
+        events.loaded.set()
         thread.join(2)
 
         self.assertEqual(self.reports.messages, [])
+        # The load timeout only started once the window was shown
+        self.assertTrue(events.loaded.waits, "the watchdog never waited for the page")
+        self.assertGreaterEqual(events.loaded.waits[0][0], events.shown.set_at)
 
     def test_reports_the_error_pywebview_logged_before_the_window_showed(self):
         thread = self.start()
@@ -212,17 +234,24 @@ class StartPageLoadWatchdogTests(unittest.TestCase):
 
         self.assertFalse(thread.is_alive(), "should not wait for the load timeout")
         self.assertEqual(len(self.reports.messages), 1)
-        self.assertIn("Internet Explorer", self.reports.messages[0])
-        self.assertIn(watchdog.WEBVIEW2_DOWNLOAD_URL, self.reports.messages[0])
+        message = self.reports.messages[0]
+        self.assertIn("Internet Explorer", message)
+        self.assertIn(watchdog.WEBVIEW2_DOWNLOAD_URL, message)
+        # IE can also be forced, so it must not claim WebView2 is definitely missing
+        self.assertIn("Usually", message)
+        self.assertIn("PYWEBVIEW_GUI", message)
         self.assertEqual(self.logger.handlers, self.handlers_before)
 
     def test_says_nothing_when_the_window_is_closed_before_it_loads(self):
+        events = self.window.events
         thread = self.start()
-        self.window.events.initialized.set("edgechromium")
-        self.window.events.shown.set()
-        self.window.events.closing.set()
-        time.sleep(0.2)  # past timeout_s
-        self.window.events.loaded.set()
+        events.initialized.set("edgechromium")
+        events.shown.set()
+        events.closing.set()
+        # Let the load timeout actually expire before checking it stayed quiet
+        wait_until(lambda: any(result is False for _, _, result in events.loaded.waits))
+        self.assertEqual(self.reports.messages, [])
+        events.loaded.set()
         thread.join(2)
 
         self.assertEqual(self.reports.messages, [])

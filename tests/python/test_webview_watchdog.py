@@ -163,6 +163,13 @@ class ErrorCollectorTests(unittest.TestCase):
         self.assertNotIn("MoveNext", reason)
         self.assertNotIn("End of", reason)
 
+    def test_reports_a_repeated_failure_once(self):
+        # Loading the app URL makes WebView2 retry its start, so pywebview logs it twice
+        self.logger.error(PYWEBVIEW_INIT_ERROR)
+        self.logger.error(PYWEBVIEW_INIT_ERROR)
+
+        self.assertEqual(len(self.collector.reasons), 1)
+
     def test_ignores_warnings(self):
         self.logger.warning("MSHTML is deprecated.")
 

@@ -53,7 +53,8 @@ class PywebviewErrorCollector(logging.Handler):
             return
         lines = [line.strip() for line in message.splitlines()]
         summary = " ".join(line for line in lines if line and not _is_dotnet_stack_line(line))
-        if summary:
+        # Loading the app URL makes WebView2 retry its start, so the same failure repeats
+        if summary and summary not in self.reasons:
             self.reasons.append(summary)
 
 

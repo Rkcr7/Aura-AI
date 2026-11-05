@@ -712,17 +712,18 @@ Created from `ai_providers.example.json`. **Not committed to git** — your keys
 </details>
 
 <details>
-<summary><b>⬜ Window opens but stays blank white</b></summary>
+<summary><b>⬜ Window opens but stays blank</b></summary>
 
-The Aura window runs on Microsoft Edge WebView2. If it stays white while the terminal looks fine, WebView2 either didn't start or isn't drawing the page:
+The Aura window runs on Microsoft Edge WebView2. If it stays empty (a plain dark or white window, no Aura AI logo) while the terminal looks fine, WebView2 either didn't start or isn't drawing the page:
 
 1. Give it ~20 seconds and check the terminal (`silent_run.vbs` hides it, so launch with `run.bat` for this). If Aura prints a `⚠️` warning about the window, the lines under it say what went wrong. Usually the fix is to install or repair the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/), then restart Aura
-2. No warning but still white? The page loaded but isn't being drawn, which is often a graphics driver issue. Start Aura with GPU acceleration off:
+2. No warning but still blank? The page loaded but isn't being drawn, which is often a graphics driver issue. Start Aura with GPU acceleration off:
    ```bat
    set WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--disable-gpu
    run.bat
    ```
 3. Aura keeps running either way, so you can open `http://127.0.0.1:8002` (or the port shown in the terminal) in a browser meanwhile. ⚠️ A browser tab is **not** hidden from screen sharing
+4. Stuck on the AURA AI loading screen instead? The window is fine but the local server didn't start, look for a `❌` error in the terminal
 </details>
 
 <details>

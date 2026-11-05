@@ -4,7 +4,7 @@
   <img src="logo.png" alt="Aura Logo" width="300" />
 </div>
 
-**An invisible AI overlay that lives on your screen — answers questions, solves problems, analyzes screenshots, and feeds you real-time intelligence. Works during interviews, exams, meetings, or anything on your screen. Invisible to screen recordings. Undetectable by proctoring software. You see everything. They see nothing.**
+**An invisible AI overlay that lives on your screen — answers questions, solves problems, analyzes screenshots, and feeds you real-time intelligence. Works during interviews, exams, meetings, or anything on your screen. Invisible to screen recordings. Undetectable by proctoring software. You see everything. They see nothing.And it is used in any workplace**
 
 [![AI Powered](https://img.shields.io/badge/AI-Vision%20%7C%20Voice%20%7C%20Multi--Provider-purple.svg)](https://github.com)
 [![Stealth Mode](https://img.shields.io/badge/Stealth-Screen%20Capture%20Protected-green.svg)](https://github.com)

@@ -124,7 +124,9 @@ class WatchPageLoadTests(unittest.TestCase):
         message = reports.messages[0]
         self.assertIn("didn't report an error", message)
         self.assertNotIn("failed to start", message)
-        self.assertIn("firewall", message)
+        # The splash is inline HTML, so a stall here is WebView2 itself, not the network
+        self.assertIn("never finished starting", message)
+        self.assertNotIn("firewall", message)
         self.assertIn(watchdog.WEBVIEW2_DOWNLOAD_URL, message)
         self.assertIn(URL, message)
 
@@ -162,6 +164,13 @@ class ErrorCollectorTests(unittest.TestCase):
         self.assertTrue(reason.endswith("(Exception from HRESULT: 0x80070002)"), reason)
         self.assertNotIn("MoveNext", reason)
         self.assertNotIn("End of", reason)
+
+    def test_reports_a_repeated_failure_once(self):
+        # Loading the app URL makes WebView2 retry its start, so pywebview logs it twice
+        self.logger.error(PYWEBVIEW_INIT_ERROR)
+        self.logger.error(PYWEBVIEW_INIT_ERROR)
+
+        self.assertEqual(len(self.collector.reasons), 1)
 
     def test_ignores_warnings(self):
         self.logger.warning("MSHTML is deprecated.")

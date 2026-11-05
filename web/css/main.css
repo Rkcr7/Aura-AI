@@ -173,6 +173,20 @@ h1 {
     padding-top: var(--space-sm);
 }
 
+/* Logo beside the wordmark, no taller than the wordmark's line, so the
+   onboarding layout keeps its height */
+.brand-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-mark {
+    width: 36px;
+    height: 36px;
+    filter: drop-shadow(0 2px 10px rgba(139, 92, 246, 0.35));
+}
+
 .brand-logo {
     font-size: 30px;
     font-weight: 800;

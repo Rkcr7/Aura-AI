@@ -1,0 +1,4 @@
+# Bundled third-party files stay byte-for-byte as published: no line ending
+# conversion on checkout (core.autocrlf would otherwise rewrite the minified
+# JS/CSS), and GitHub collapses them in diffs and language stats.
+web/vendor/** -text linguist-vendored

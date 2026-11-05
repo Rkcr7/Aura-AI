@@ -6,6 +6,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 from pathlib import Path
 
 # --- Auto-create .env from .env.example if missing ---
@@ -32,10 +33,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import window_manager  # Our new module for capture protection
-from api import websocket, config_api
-from api.session_manager import session_manager
 from core import webview_watchdog
 from core.config import settings, print_config_debug
+from core.splash import SPLASH_HTML, WINDOW_BACKGROUND
 
 
 def find_free_port(preferred: int = 8002) -> int:
@@ -258,8 +258,17 @@ command_monitor = GlobalCommandMonitor()
 
 # --- FastAPI App Setup ---
 app = FastAPI()
-app.include_router(websocket.router)
-app.include_router(config_api.router)
+
+
+def include_api_routes(app: FastAPI) -> None:
+    """Attach the API routers.
+
+    Imported here rather than at the top: they pull in the AI SDKs (~0.6s), and
+    this runs on the services thread while the window is already opening.
+    """
+    from api import websocket, config_api
+    app.include_router(websocket.router)
+    app.include_router(config_api.router)
 
 # Mount the 'web' directory to serve static files (CSS, JS)
 # This makes files in 'web/css' and 'web/js' available under '/static/css' and '/static/js'
@@ -380,7 +389,16 @@ class AsyncioServiceThread:
         """Run all async services concurrently"""
         try:
             print("🚀 Starting async services...")
-            
+
+            # The slow imports happen here, off the main thread
+            include_api_routes(app)
+            from api.session_manager import session_manager
+
+            # Closed while importing: skip starting anything, so the closing
+            # window isn't left waiting on a server it no longer needs
+            if self.shutdown_event.is_set():
+                return
+
             # Start the Uvicorn server
             await uvicorn_server.start()
             
@@ -398,6 +416,7 @@ class AsyncioServiceThread:
             
         except Exception as e:
             print(f"❌ Error in async services: {e}")
+            traceback.print_exc()  # e.g. a missing package now fails here, not at startup
         finally:
             # Cleanup
             await self._cleanup_async_services()
@@ -417,17 +436,45 @@ class AsyncioServiceThread:
 # Global asyncio service thread instance
 asyncio_service_thread = AsyncioServiceThread()
 
+SLOW_START_NOTE_S = 10.0
+
+
+def wait_for_server_start(stop_waiting=lambda: False) -> bool:
+    """Block until uvicorn accepts connections.
+
+    Returns False if the services thread died (the server will never come up)
+    or stop_waiting() says to give up, e.g. the window was closed. No deadline
+    otherwise: the server is usually up within a second, but a cold first
+    launch can spend a while importing the AI SDKs, and loading the app before
+    the server answers would only show Edge's error page.
+    """
+    started_at = time.monotonic()
+    noted = False
+    while not stop_waiting():
+        server = uvicorn_server.server
+        if server is not None and server.started:
+            return True
+        thread = asyncio_service_thread.thread
+        if thread is not None and not thread.is_alive():
+            return False
+        if not noted and time.monotonic() - started_at > SLOW_START_NOTE_S:
+            print("⏳ Still starting up, the first launch after an install or update can take a while...")
+            noted = True
+        time.sleep(0.01)
+    return False
+
 # --- Webview Setup (Main Thread) ---
 def setup_webview_window():
     """Setup and configure the webview window"""
-    # Create the pywebview window, loading the FastAPI server
-    url = f'http://127.0.0.1:{uvicorn_server.port}'
+    # Open on the splash; open_app_when_ready() swaps in the app once the
+    # server is up. The dark background keeps it from flashing white first.
     window = webview.create_window(
         'Aura',
-        url,
+        html=SPLASH_HTML,
         width=1000,
         height=750,
-        resizable=True
+        resizable=True,
+        background_color=WINDOW_BACKGROUND
     )
 
     # Window shown event handler
@@ -489,9 +536,39 @@ def setup_webview_window():
 
     # If WebView2 fails to start, the window stays blank white with one easy to
     # miss log line. Say so plainly in the console instead (issue #10).
-    webview_watchdog.start_page_load_watchdog(window, url)
+    webview_watchdog.start_page_load_watchdog(window, app_url())
 
     return window
+
+
+def app_url() -> str:
+    return f'http://127.0.0.1:{uvicorn_server.port}'
+
+
+def open_app_when_ready(window) -> None:
+    """Swap the splash for the app as soon as the server accepts connections.
+
+    Runs on pywebview's own thread (webview.start's func), so the window and
+    its splash are already up while the services thread finishes booting.
+    """
+    def window_closed() -> bool:
+        return window.events.closing.is_set() or window.events.closed.is_set()
+
+    if wait_for_server_start(stop_waiting=window_closed):
+        try:
+            window.load_url(app_url())
+        except Exception as e:  # WebViewException if the window never showed
+            print(f"❌ Couldn't load Aura into the window: {e}")
+        return
+
+    if window_closed():
+        return
+    # Stay on the splash and say so there too: silent_run.vbs hides the terminal
+    print("❌ Aura's local server didn't start (see the error above), so the window can't load the app")
+    try:
+        window.evaluate_js("window.showStartupError && window.showStartupError()")
+    except Exception:
+        pass  # the splash never loaded either, which the watchdog reports
 
 # --- Main Application Entry Point ---
 def main():
@@ -502,16 +579,14 @@ def main():
     try:
         # Start the asyncio services in background thread
         asyncio_service_thread.start()
-        
-        # Give the server a moment to start
-        time.sleep(2)
-        
-        # Setup and run webview on main thread (required by pywebview)
+
+        # Setup and run webview on main thread (required by pywebview). No
+        # waiting for the server first: the window opens on the splash.
         window = setup_webview_window()
-        
+
         # Start the pywebview event loop (blocks until window closes)
         print("🖥️ Starting pywebview on main thread...")
-        webview.start(debug=DEV_MODE)
+        webview.start(open_app_when_ready, (window,), debug=DEV_MODE)
         
     except KeyboardInterrupt:
         print("🛑 Application interrupted by user")

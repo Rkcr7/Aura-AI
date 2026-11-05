@@ -53,7 +53,8 @@ class PywebviewErrorCollector(logging.Handler):
             return
         lines = [line.strip() for line in message.splitlines()]
         summary = " ".join(line for line in lines if line and not _is_dotnet_stack_line(line))
-        if summary:
+        # Loading the app URL makes WebView2 retry its start, so the same failure repeats
+        if summary and summary not in self.reasons:
             self.reasons.append(summary)
 
 
@@ -74,8 +75,8 @@ def explain_blank_window(url: str, reasons: Sequence[str], timeout_s: float) -> 
     else:
         details = [
             "   WebView2 (the Edge engine the Aura window runs on) didn't report an error, it just",
-            "   hasn't finished loading the page. A firewall, VPN, proxy or antivirus may be holding",
-            "   it up. If it never loads, repair the Microsoft Edge WebView2 Runtime and restart Aura:",
+            "   never finished starting. Antivirus or a damaged WebView2 install can do this.",
+            "   Fix: repair the Microsoft Edge WebView2 Runtime, then restart Aura:",
         ]
 
     return "\n".join([

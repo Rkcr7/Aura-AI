@@ -1,6 +1,6 @@
 // Math Renderer for Live Interview
 // Finds LaTeX math in model output and renders it with KaTeX (loaded globally
-// from the CDN in index.html). Kept free of DOM access so it runs under Node tests.
+// from web/vendor/katex in index.html). Kept free of DOM access so it runs under Node tests.
 
 // Captures the spaces around a placeholder so display math can drop them
 const MATH_PLACEHOLDER = /([ \t]*)__MATH_(\d+)__([ \t]*)/g;
@@ -179,9 +179,9 @@ function rememberRender(key, html) {
 
 /**
  * Render one segment to HTML. Falls back to the escaped original source
- * (delimiters included) when KaTeX isn't loaded, e.g. offline or CDN blocked.
+ * (delimiters included) when KaTeX isn't loaded, e.g. its script failed to load.
  * @param {{tex: string, display: boolean, source: string}} segment
- * @param {object} [katexLib] - defaults to the global `katex` from the CDN
+ * @param {object} [katexLib] - defaults to the global `katex` that index.html loads
  * @returns {string}
  */
 export function renderMathSegment(segment, katexLib) {

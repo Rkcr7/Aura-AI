@@ -34,6 +34,7 @@ echo.
 
 :: Check if virtual environment exists
 echo [2/5] Checking virtual environment...
+set "NEW_VENV="
 if not exist "venv\" (
     echo    Virtual environment not found, creating one...
     python -m venv venv
@@ -42,6 +43,7 @@ if not exist "venv\" (
         echo Make sure you have the 'venv' module available
         exit /b 1
     )
+    set "NEW_VENV=1"
     echo    Virtual environment created successfully
 ) else (
     echo    Virtual environment found
@@ -58,22 +60,33 @@ if errorlevel 1 (
 echo    Virtual environment activated
 echo.
 
-:: Upgrade pip and install/update dependencies
-echo [4/5] Installing/updating dependencies...
-echo    Upgrading pip...
-python -m pip install --upgrade pip --quiet --timeout 60
+:: Install dependencies only when requirements.txt changed since the last
+:: successful install (a copy is kept in the venv). A normal launch then needs
+:: no network: pip used to run on every start, and with no internet its pip
+:: self-upgrade retried for 2+ minutes before Aura could open.
+echo [4/5] Checking dependencies...
+set "REQ_STAMP=venv\requirements.installed.txt"
+fc /b requirements.txt "%REQ_STAMP%" >nul 2>&1
 if errorlevel 1 (
-    echo WARNING: Failed to upgrade pip, continuing anyway...
+    if defined NEW_VENV (
+        echo    Upgrading pip...
+        python -m pip install --upgrade pip --quiet --timeout 60
+        if errorlevel 1 (
+            echo WARNING: Failed to upgrade pip, continuing anyway...
+        )
+    )
+    echo    Installing requirements from requirements.txt...
+    pip install -r requirements.txt --quiet --timeout 60 --disable-pip-version-check
+    if errorlevel 1 (
+        echo ERROR: Failed to install dependencies!
+        echo Please check requirements.txt and your internet connection
+        exit /b 1
+    )
+    copy /y requirements.txt "%REQ_STAMP%" >nul
+    echo    Dependencies installed successfully
+) else (
+    echo    Dependencies up to date
 )
-
-echo    Installing requirements from requirements.txt...
-pip install -r requirements.txt --quiet --timeout 60
-if errorlevel 1 (
-    echo ERROR: Failed to install dependencies!
-    echo Please check requirements.txt and your internet connection
-    exit /b 1
-)
-echo    Dependencies installed successfully
 echo.
 
 :: Check if .env file exists (the app may need it)

@@ -23,7 +23,16 @@
 
 ---
 
-## 🆕 What's New in v1.1.0
+## 🆕 What's New in v1.1.1
+
+| | |
+|--------|--------|
+| ⚡ **Opens in about 2 seconds** | The window shows up right away with an Aura AI splash, and the app is ready in ~1.9s instead of 5 to 9s |
+| 📴 **No internet needed to load** | Fonts, syntax highlighting and math ship with Aura now, so the UI loads the same offline or on a network that blocks Google Fonts or cdnjs |
+| 🧮 **Math renders properly** | LaTeX in answers shows up as real equations instead of raw `$...$` |
+| 🩺 **Blank window explained** | If WebView2 can't start, the terminal says why and how to fix it instead of leaving an empty window |
+
+### Also new in v1.1.0
 
 | | |
 |--------|--------|

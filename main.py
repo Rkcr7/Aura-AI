@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 import window_manager  # Our new module for capture protection
 from api import websocket, config_api
 from api.session_manager import session_manager
+from core import webview_watchdog
 from core.config import settings, print_config_debug
 
 
@@ -420,9 +421,10 @@ asyncio_service_thread = AsyncioServiceThread()
 def setup_webview_window():
     """Setup and configure the webview window"""
     # Create the pywebview window, loading the FastAPI server
+    url = f'http://127.0.0.1:{uvicorn_server.port}'
     window = webview.create_window(
         'Aura',
-        f'http://127.0.0.1:{uvicorn_server.port}',
+        url,
         width=1000,
         height=750,
         resizable=True
@@ -484,7 +486,11 @@ def setup_webview_window():
     
     window.events.shown += on_window_shown
     window.events.closing += on_window_closing
-    
+
+    # If WebView2 fails to start, the window stays blank white with one easy to
+    # miss log line. Say so plainly in the console instead (issue #10).
+    webview_watchdog.start_page_load_watchdog(window, url)
+
     return window
 
 # --- Main Application Entry Point ---

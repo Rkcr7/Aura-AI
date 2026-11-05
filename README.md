@@ -411,6 +411,7 @@ Never leave the interview window. Control everything instantly with our ergonomi
 |------------|---------|
 | **Operating System** | **Windows 10 or 11** — fully supported on `master` (stealth features use Win32 APIs). <br>**macOS** — work-in-progress port on the [`macos`](https://github.com/Rkcr7/Aura-AI/tree/macos) branch (AppKit/pyobjc, some features still being ported). |
 | **Python** | 3.8 or newer ([download here](https://www.python.org/downloads/)) — check **"Add Python to PATH"** during install |
+| **WebView2 Runtime** | The Edge engine the Aura window runs on. Already on Windows 11 and most updated Windows 10 PCs, otherwise [get it here](https://developer.microsoft.com/microsoft-edge/webview2/) |
 | **Microphone** | Any mic — built-in laptop mic, headset, or USB mic all work |
 | **Internet** | Required for API calls to Deepgram (STT) and LLM providers |
 | **API Keys** | Deepgram + at least one LLM provider (all free — see below) |
@@ -708,6 +709,20 @@ Created from `ai_providers.example.json`. **Not committed to git** — your keys
 2. Press `Alt + 3` for 100% opacity (may be transparent)
 3. Some fullscreen apps override always-on-top — try windowed mode
 4. Re-enable stealth with `Alt + Shift + S`
+</details>
+
+<details>
+<summary><b>⬜ Window opens but stays blank white</b></summary>
+
+The Aura window runs on Microsoft Edge WebView2. If it stays white while the terminal looks fine, WebView2 either didn't start or isn't drawing the page:
+
+1. Give it ~20 seconds and check the terminal (`silent_run.vbs` hides it, so launch with `run.bat` for this). If Aura prints a `⚠️` warning about the window, the lines under it say what went wrong. Usually the fix is to install or repair the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/), then restart Aura
+2. No warning but still white? The page loaded but isn't being drawn, which is often a graphics driver issue. Start Aura with GPU acceleration off:
+   ```bat
+   set WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--disable-gpu
+   run.bat
+   ```
+3. Aura keeps running either way, so you can open `http://127.0.0.1:8002` (or the port shown in the terminal) in a browser meanwhile. ⚠️ A browser tab is **not** hidden from screen sharing
 </details>
 
 <details>
